@@ -3,7 +3,11 @@
 #define AIRPODS_PACKETS_H
 
 #include <QByteArray>
+#include <QList>
+#include <QString>
+#include <QPair>
 #include <optional>
+#include <algorithm>
 #include <climits>
 
 #include "enums.h"
@@ -235,6 +239,135 @@ namespace AirPodsPackets
             keys.magicAccEncKey = data.mid(index, 16);
 
             return keys;
+        }
+    }
+
+    namespace OwnsConnection
+    {
+        using Type = BasicControlCommand<0x06>;
+        static const QByteArray ENABLED = Type::ENABLED;
+        static const QByteArray RELEASED = ControlCommand::createCommand(0x06, 0x00);
+        static const QByteArray HEADER = Type::HEADER;
+        inline bool parseOwns(const QByteArray &data) { return Type::getValue(data) == 0x01; }
+    }
+
+    namespace SmartRouting
+    {
+        static const QByteArray HEADER = QByteArray::fromHex("040004001000");
+        static const QByteArray CONNECTED_DEVICES_HEADER = QByteArray::fromHex("040004002e");
+        static const QByteArray AUDIO_SOURCE_HEADER = QByteArray::fromHex("040004000e");
+        static const QByteArray RESPONSE_HEADER = QByteArray::fromHex("040004001100");
+        static const char AUDIO_SOURCE_NONE = 0x00;
+
+        struct AudioSource {
+            QString mac;
+            char type;
+        };
+
+        inline QString formatMac(const QByteArray &mac) { return QString::fromLatin1(mac.toHex(':').toUpper()); }
+
+        namespace Opack
+        {
+            inline QByteArray string(const QByteArray &value)
+            {
+                if (value.size() <= 32)
+                    return char(0x40 + value.size()) + value;
+                return char(0x61) + QByteArray(1, char(value.size())) + value;
+            }
+
+            inline QByteArray integer(int value)
+            {
+                if (value >= 0 && value <= 39)
+                    return QByteArray(1, char(0x08 + value));
+                if (value >= -128 && value <= 127)
+                    return char(0x30) + QByteArray(1, char(value));
+                return char(0x31) + QByteArray(1, char(value & 0xFF)) + char((value >> 8) & 0xFF);
+            }
+
+            inline QByteArray boolean(bool value) { return QByteArray(1, value ? 0x01 : 0x02); }
+
+            inline QByteArray dictionary(const QList<QPair<QByteArray, QByteArray>> &entries)
+            {
+                QByteArray data(1, char(0xE0 + entries.size()));
+                for (const auto &[key, value] : entries)
+                    data += string(key) + value;
+                return data;
+            }
+        }
+
+        inline QByteArray createPacket(QByteArray target, const QByteArray &body)
+        {
+            std::reverse(target.begin(), target.end());
+            const int length = body.size() + 1;
+            return HEADER + target + char(length & 0xFF) + char(length >> 8) + char(0x01) + body;
+        }
+
+        inline QByteArray createMediaInformation(const QString &selfMac, const QByteArray &target, bool playing)
+        {
+            using namespace Opack;
+            return createPacket(target, dictionary({
+                {"playingApp", string(playing ? "com.google.ios.youtube" : "Unknown")},
+                {"hostStreamingState", string(playing ? "YES" : "NO")},
+                {"btAddress", string(selfMac.toLatin1())},
+                {"btName", string("Android")},
+                {"otherDeviceAudioCategory", integer(playing ? 301 : 100)},
+            }));
+        }
+
+        inline QByteArray createShowUI(const QByteArray &target)
+        {
+            using namespace Opack;
+            return createPacket(target, dictionary({
+                {"SmartRoutingKeyShowNearbyUI", boolean(true)},
+                {"localscore", integer(301)},
+                {"reason", string("Hijackv2")},
+                {"audioRoutingScore", integer(301)},
+                {"audioRoutingSetOwnershipToFalse", boolean(true)},
+                {"remotescore", integer(100)},
+            }));
+        }
+
+        inline QByteArray createHijackRequest(const QByteArray &target)
+        {
+            using namespace Opack;
+            return createPacket(target, dictionary({
+                {"localscore", integer(301)},
+                {"reason", string("Hijackv2")},
+                {"audioRoutingScore", integer(301)},
+                {"audioRoutingSetOwnershipToFalse", boolean(true)},
+                {"remotescore", integer(100)},
+            }));
+        }
+
+        inline QByteArray createAddTiPiDevice(const QString &selfMac, const QByteArray &target)
+        {
+            using namespace Opack;
+            return createPacket(target, dictionary({
+                {"idleTime", integer(0)},
+                {"newTipi", boolean(true)},
+                {"btAddress", string(selfMac.toLatin1())},
+                {"btName", string("Android")},
+                {"nearbyAudioScore", integer(6)},
+            }));
+        }
+
+        inline QList<QByteArray> parseConnectedDevices(const QByteArray &data)
+        {
+            QList<QByteArray> devices;
+            if (data.size() < 9)
+                return devices;
+            for (int i = 0, offset = 9; i < data.at(8) && offset + 8 <= data.size(); i++, offset += 8)
+                devices.append(data.mid(offset, 6));
+            return devices;
+        }
+
+        inline std::optional<AudioSource> parseAudioSource(const QByteArray &data)
+        {
+            if (data.size() < 13)
+                return std::nullopt;
+            QByteArray mac = data.mid(6, 6);
+            std::reverse(mac.begin(), mac.end());
+            return AudioSource{formatMac(mac), data.at(12)};
         }
     }
 

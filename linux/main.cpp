@@ -10,6 +10,8 @@
 #include <QLoggingCategory>
 #include <QThread>
 #include <QTimer>
+#include <QElapsedTimer>
+#include <QQueue>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QTranslator>
@@ -76,6 +78,18 @@ public:
         mediaController = new MediaController(this);
         connect(mediaController, &MediaController::mediaStateChanged, this, &AirPodsTrayApp::handleMediaStateChange);
         mediaController->followMediaChanges();
+
+        m_txTimer.setInterval(20);
+        connect(&m_txTimer, &QTimer::timeout, this, [this]()
+        {
+            if (m_txQueue.isEmpty() || !socket || !socket->isOpen())
+            {
+                m_txQueue.clear();
+                m_txTimer.stop();
+                return;
+            }
+            socket->write(m_txQueue.dequeue());
+        });
 
         monitor = new BluetoothMonitor(this);
         connect(monitor, &BluetoothMonitor::deviceConnected, this, &AirPodsTrayApp::bluezDeviceConnected);
@@ -387,7 +401,9 @@ public slots:
     {
         if (socket && socket->isOpen())
         {
-            socket->write(packet);
+            m_txQueue.enqueue(packet);
+            if (!m_txTimer.isActive())
+                m_txTimer.start();
             LOG_DEBUG(logMessage << packet.toHex());
             return true;
         }
@@ -512,6 +528,14 @@ private slots:
             socket->close();
             socket = nullptr;
         }
+        if (isPlayingLocally())
+        {
+            LOG_INFO("AirPods disconnected while playing, pausing playback");
+            mediaController->pause();
+        }
+        m_connectedDevices.clear();
+        m_audioSource.reset();
+        m_takeoverTarget.clear();
         if (phoneSocket && phoneSocket->isOpen())
         {
             phoneSocket->write(AirPodsPackets::Connection::AIRPODS_DISCONNECTED);
@@ -656,6 +680,7 @@ private slots:
 
         localSocket->connectToService(device.address(), QBluetoothUuid("74ec2172-0bad-4d01-8f77-997b2be0722a"));
         m_deviceInfo->setBluetoothAddress(device.address().toString());
+        m_settings->setValue("airpods/address", device.address().toString());
         notifyAndroidDevice();
     }
 
@@ -745,6 +770,49 @@ private slots:
             }
             m_bleManager->stopScan();
             emit airPodsStatusChanged();
+        }
+        else if (data.startsWith(AirPodsPackets::OwnsConnection::HEADER))
+        {
+            const bool owns = AirPodsPackets::OwnsConnection::parseOwns(data);
+            LOG_INFO("Owns connection received: " << owns);
+            if (!owns && !(m_lastTakeover.isValid() && m_lastTakeover.elapsed() < 10000))
+                releaseAudio();
+        }
+        else if (data.startsWith(AirPodsPackets::SmartRouting::RESPONSE_HEADER))
+        {
+            if (data.contains("SetOwnershipToFalse"))
+            {
+                LOG_INFO("Other device requested ownership");
+                writePacketToSocket(AirPodsPackets::OwnsConnection::RELEASED, "Release ownership packet written: ");
+                releaseAudio();
+            }
+        }
+        else if (data.startsWith(AirPodsPackets::SmartRouting::CONNECTED_DEVICES_HEADER))
+        {
+            using namespace AirPodsPackets::SmartRouting;
+            const QList<QByteArray> devices = parseConnectedDevices(data);
+            const QString localMac = QBluetoothLocalDevice().address().toString();
+            for (const QByteArray &mac : devices)
+            {
+                if (formatMac(mac) == localMac || m_connectedDevices.contains(mac))
+                    continue;
+                writePacketToSocket(createMediaInformation(localMac, mac, false), "Media information new device packet written: ");
+                writePacketToSocket(createAddTiPiDevice(localMac, mac), "Add TiPi device packet written: ");
+            }
+            m_connectedDevices = devices;
+            LOG_INFO("Connected devices received: " << m_connectedDevices.size());
+        }
+        else if (data.startsWith(AirPodsPackets::SmartRouting::AUDIO_SOURCE_HEADER))
+        {
+            m_audioSource = AirPodsPackets::SmartRouting::parseAudioSource(data);
+            if (!m_takeoverTarget.isEmpty() && m_audioSource && (m_audioSource->mac != m_takeoverTarget || m_audioSource->type == AirPodsPackets::SmartRouting::AUDIO_SOURCE_NONE))
+            {
+                m_takeoverTarget.clear();
+                mediaController->restartA2dpStream();
+            }
+            LOG_INFO("Audio source received: " << data.toHex());
+            if (std::exchange(m_takeoverOnConnect, false))
+                takeOverAudio();
         }
         else if (data.startsWith(AirPodsPackets::OneBudANCMode::HEADER)) {
             if (auto value = AirPodsPackets::OneBudANCMode::parseState(data))
@@ -889,8 +957,49 @@ public:
         if (state == MediaController::MediaState::Playing) {
             LOG_INFO("Media started playing, sending disconnect request to Android and taking over audio");
             sendDisconnectRequestToAndroid();
-            connectToAirPods(true);
+            if (socket && socket->isOpen())
+                takeOverAudio();
+            else
+            {
+                m_takeoverOnConnect = true;
+                connectToAirPods(true);
+            }
         }
+    }
+
+    void takeOverAudio()
+    {
+        using namespace AirPodsPackets::SmartRouting;
+        const QString localMac = QBluetoothLocalDevice().address().toString();
+        if (!m_audioSource || m_audioSource->mac == localMac || m_audioSource->type == AUDIO_SOURCE_NONE)
+            return;
+        if (m_lastTakeover.isValid() && m_lastTakeover.elapsed() < 10000)
+            return;
+
+        auto target = std::find_if(m_connectedDevices.cbegin(), m_connectedDevices.cend(),
+                                   [&](const QByteArray &mac) { return formatMac(mac) == m_audioSource->mac; });
+        if (target == m_connectedDevices.cend())
+            return;
+
+        LOG_INFO("Taking over audio from " << m_audioSource->mac);
+        m_lastTakeover.start();
+        m_takeoverTarget = m_audioSource->mac;
+        writePacketToSocket(AirPodsPackets::OwnsConnection::ENABLED, "Owns connection packet written: ");
+        writePacketToSocket(createMediaInformation(localMac, *target, true), "Media information packet written: ");
+        writePacketToSocket(createShowUI(*target), "Smart routing show UI packet written: ");
+        writePacketToSocket(createHijackRequest(*target), "Hijack request packet written: ");
+    }
+
+    void releaseAudio()
+    {
+        LOG_INFO("Lost ownership, pausing playback");
+        mediaController->pause();
+    }
+
+    bool isPlayingLocally() const
+    {
+        return m_audioSource && m_audioSource->type != AirPodsPackets::SmartRouting::AUDIO_SOURCE_NONE
+            && m_audioSource->mac == QBluetoothLocalDevice().address().toString();
     }
 
     void sendDisconnectRequestToAndroid()
@@ -919,9 +1028,15 @@ public:
         }
 
         if (force) {
-            LOG_INFO("Forcing connection to AirPods");
+            const QString address = m_settings->value("airpods/address").toString();
+            if (address.isEmpty())
+            {
+                LOG_WARN("No known AirPods address, cannot force connection");
+                return;
+            }
+            LOG_INFO("Forcing connection to AirPods " << address);
             QProcess process;
-            process.start("bluetoothctl", QStringList() << "connect" << m_deviceInfo->bluetoothAddress());
+            process.start("bluetoothctl", QStringList() << "connect" << address);
             process.waitForFinished();
             QString output = process.readAllStandardOutput().trimmed();
             LOG_INFO("Bluetoothctl output: " << output);
@@ -986,6 +1101,13 @@ private:
     BleManager *m_bleManager;
     SystemSleepMonitor *m_systemSleepMonitor = nullptr;
     QString m_phoneMacStatus;
+    bool m_takeoverOnConnect = false;
+    QString m_takeoverTarget;
+    QQueue<QByteArray> m_txQueue;
+    QTimer m_txTimer;
+    QElapsedTimer m_lastTakeover;
+    QList<QByteArray> m_connectedDevices;
+    std::optional<AirPodsPackets::SmartRouting::AudioSource> m_audioSource;
 };
 
 int main(int argc, char *argv[]) {

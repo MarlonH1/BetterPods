@@ -196,6 +196,15 @@ bool MediaController::restartWirePlumber() {
   }
 }
 
+void MediaController::restartA2dpStream() {
+  const QString profile = getPreferredA2dpProfile();
+  if (profile.isEmpty())
+    return;
+  LOG_INFO("Restarting A2DP stream with profile: " << profile);
+  m_pulseAudio->setCardProfile(m_deviceOutputName, "off");
+  m_pulseAudio->setCardProfile(m_deviceOutputName, profile);
+}
+
 void MediaController::activateA2dpProfile() {
   if (connectedDeviceMacAddress.isEmpty() || m_deviceOutputName.isEmpty()) {
     LOG_WARN("Connected device MAC address or output name is empty, cannot activate A2DP profile");

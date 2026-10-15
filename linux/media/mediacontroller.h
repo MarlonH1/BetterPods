@@ -36,6 +36,7 @@ public:
   bool isActiveOutputDeviceAirPods();
   void handleConversationalAwareness(const QByteArray &data);
   void activateA2dpProfile();
+  void restartA2dpStream();
   void removeAudioOutputDevice();
   void setConnectedDeviceMacAddress(const QString &macAddress);
   bool isA2dpProfileAvailable();
