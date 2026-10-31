@@ -10,6 +10,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavEntry
@@ -19,7 +20,11 @@ import me.kavishdevar.librepods.bluetooth.AACPManager
 import me.kavishdevar.librepods.data.updates.updates
 import me.kavishdevar.librepods.presentation.screens.AccessibilitySettingsScreen
 import me.kavishdevar.librepods.presentation.screens.AdaptiveStrengthScreen
-import me.kavishdevar.librepods.presentation.screens.AirPodsSettingsRoute
+import me.kavishdevar.librepods.presentation.screens.ControlsNavigation
+import me.kavishdevar.librepods.presentation.screens.ControlsScreen
+import me.kavishdevar.librepods.presentation.screens.HomeNavigation
+import me.kavishdevar.librepods.presentation.screens.HomeRoute
+import me.kavishdevar.librepods.presentation.screens.SoundScreen
 import me.kavishdevar.librepods.presentation.screens.AppSettingsScreen
 import me.kavishdevar.librepods.presentation.screens.CallControlScreen
 import me.kavishdevar.librepods.presentation.screens.EqualizerRoute
@@ -87,30 +92,41 @@ fun AppNavGraph(
                     Screen.AirPodsSettings ->
                         NavEntry(screen) {
                             if (!airPodsViewModel.isReady) LoadingScreen()
-                            AirPodsSettingsRoute(
+                            HomeRoute(
                                 viewModel = airPodsViewModel,
-                                navigateToRename = { navigate(Screen.Rename) },
-                                navigateToHearingProtection = { navigate(Screen.HearingProtection) },
-                                navigateToHearingAid = { navigate(Screen.HearingAid) },
-                                navigateToLeftLongPress = {
-                                    navigate(
-                                        Screen.LongPress("Left")
-                                    )
-                                },
-                                navigateToRightLongPress = {
-                                    navigate(
-                                        Screen.LongPress("Right")
-                                    )
-                                },
-                                navigateToPurchase = { navigate(Screen.Purchase) },
-                                navigateToAdaptiveStrength = { navigate(Screen.AdaptiveStrength) },
-                                navigateToEqualizer = { navigate(Screen.Equalizer) },
-                                navigateToHeadTracking = { navigate(Screen.HeadTracking) },
-                                navigateToAccessibility = { navigate(Screen.Accessibility) },
-                                navigateToVersion = { navigate(Screen.VersionInfo) },
-                                navigateToTroubleshooting = { navigate(Screen.Troubleshooting) },
-                                navigateToCallControlScreen = { navigate(Screen.CallControl(it)) },
-                                navigateToMicrophoneSettings = { navigate(Screen.MicrophoneSettings) },
+                                topPadding = 8.dp,
+                                nav = HomeNavigation(
+                                    rename = { navigate(Screen.Rename) },
+                                    sound = { navigate(Screen.Sound) },
+                                    controls = { navigate(Screen.Controls) },
+                                    accessibility = { navigate(Screen.Accessibility) },
+                                    microphone = { navigate(Screen.MicrophoneSettings) },
+                                    version = { navigate(Screen.VersionInfo) },
+                                    troubleshooting = { navigate(Screen.Troubleshooting) },
+                                    purchase = ::navigateToPurchase,
+                                )
+                            )
+                        }
+
+                    Screen.Sound ->
+                        NavEntry(screen) {
+                            if (!airPodsViewModel.isReady) LoadingScreen()
+                            SoundScreen(airPodsViewModel, topPadding = 8.dp)
+                        }
+
+                    Screen.Controls ->
+                        NavEntry(screen) {
+                            if (!airPodsViewModel.isReady) LoadingScreen()
+                            ControlsScreen(
+                                viewModel = airPodsViewModel,
+                                topPadding = 8.dp,
+                                nav = ControlsNavigation(
+                                    leftLongPress = { navigate(Screen.LongPress("Left")) },
+                                    rightLongPress = { navigate(Screen.LongPress("Right")) },
+                                    headGestures = { navigate(Screen.HeadTracking) },
+                                    callControl = { navigate(Screen.CallControl(it)) },
+                                    purchase = ::navigateToPurchase,
+                                )
                             )
                         }
 

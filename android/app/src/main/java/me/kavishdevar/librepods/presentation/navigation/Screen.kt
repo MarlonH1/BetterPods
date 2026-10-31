@@ -65,6 +65,12 @@ sealed interface Screen: NavKey {
     data object Equalizer: Screen
 
     @Serializable
+    data object Sound: Screen
+
+    @Serializable
+    data object Controls: Screen
+
+    @Serializable
     data class LongPress(
         val bud: String
     ): Screen

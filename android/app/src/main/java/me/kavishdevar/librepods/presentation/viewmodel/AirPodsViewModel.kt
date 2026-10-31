@@ -214,6 +214,7 @@ class AirPodsViewModel(
         observeATT()
         observeSharedPreferences()
         observeBilling()
+        watchConnection()
         if (isDemoMode) activateDemoMode()
         isReady = true
     }
@@ -458,12 +459,39 @@ class AirPodsViewModel(
         }
     }
 
+    /**
+     * A BluetoothSocket keeps reporting isConnected until it's closed, even after the link
+     * dropped, so also ask the stack whether the device's ACL link is still up.
+     */
+    private fun isReallyConnected(): Boolean {
+        if (BluetoothConnectionManager.aacpSocket?.isConnected != true) return false
+        val device = service.device ?: return false
+        return runCatching {
+            device.javaClass.getMethod("isConnected").invoke(device) as Boolean
+        }.getOrDefault(true)
+    }
+
+    private fun watchConnection() {
+        if (isDemoMode) return
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(2000)
+                if (isDemoMode) continue
+                val connected = isReallyConnected()
+                if (connected != _uiState.value.isLocallyConnected) {
+                    if (connected) loadCurrentStatus()
+                    else _uiState.update { it.copy(isLocallyConnected = false) }
+                }
+            }
+        }
+    }
+
     fun loadCurrentStatus() {
         if (isDemoMode) return
         service.let { service ->
             _uiState.update {
                 it.copy(
-                    isLocallyConnected = BluetoothConnectionManager.aacpSocket?.isConnected == true,
+                    isLocallyConnected = isReallyConnected(),
                     battery = service.getBattery(),
                     ancMode = controlRepo.getValue(ControlCommandIdentifiers.LISTENING_MODE)?.get(0)?.toInt() ?: 1,
                     controlStates = controlRepo.getMap()

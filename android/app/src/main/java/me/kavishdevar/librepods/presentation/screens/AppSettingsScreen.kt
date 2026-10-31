@@ -18,6 +18,14 @@
 
 package me.kavishdevar.librepods.presentation.screens
 
+import androidx.compose.material3.Slider
+import androidx.compose.runtime.mutableStateOf
+import me.kavishdevar.librepods.presentation.components.RadioRow
+import me.kavishdevar.librepods.presentation.components.SectionHeader
+import me.kavishdevar.librepods.presentation.components.SettingsGroup
+import me.kavishdevar.librepods.presentation.components.SettingsRow
+import me.kavishdevar.librepods.presentation.components.SwitchRow
+import me.kavishdevar.librepods.services.ServiceManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -56,6 +64,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -185,256 +194,148 @@ fun AppSettingsScreen(
             }
         }
 
-        StyledToggle(
-            title = stringResource(R.string.appearance),
-            label = stringResource(R.string.use_material3e),
-            checked = state.m3eEnabled,
-            onCheckedChange = viewModel::setm3eEnabled,
-            enabled = state.isPremium
+        if (state.connectionSuccessful) {
+            val notifPrefs = context.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
+            var connectionNotifications by remember {
+                mutableStateOf(notifPrefs.getBoolean("connection_notifications", true))
+            }
+            var shadeCard by remember { mutableStateOf(notifPrefs.getBoolean("shade_card", true)) }
+            // "Automatically" mirrors iOS: take the AirPods over when this phone starts playing or
+            // rings. "When last connected" only reconnects if this phone was the last one used.
+            val automatic = state.takeoverWhenMediaStart || state.takeoverWhenIdle
+            fun setAutomatic(on: Boolean) {
+                viewModel.setTakeoverWhenDisconnected(true)
+                viewModel.setTakeoverWhenIdle(on)
+                viewModel.setTakeoverWhenRingingCall(on)
+                viewModel.setTakeoverWhenMediaStart(on)
+                viewModel.setTakeoverWhenMusic(false)
+            }
+
+            SectionHeader(stringResource(R.string.ui_connect_to_this_phone))
+            SettingsGroup(
+                rows = arrayOf(
+                    { m -> RadioRow(m, stringResource(R.string.ui_connect_automatically), stringResource(R.string.ui_connect_automatically_desc),
+                        selected = automatic, onClick = { if (state.isPremium) setAutomatic(true) }) },
+                    { m -> RadioRow(m, stringResource(R.string.ui_connect_when_last), stringResource(R.string.ui_connect_when_last_desc),
+                        selected = !automatic, onClick = { if (state.isPremium) setAutomatic(false) }) },
+                )
+            )
+
+            SectionHeader(stringResource(R.string.notif_channel_events))
+            SettingsGroup(
+                rows = arrayOf(
+                    { m -> SwitchRow(m, stringResource(R.string.ui_connection_notifications), stringResource(R.string.ui_connection_notifications_desc),
+                        checked = connectionNotifications,
+                        onCheckedChange = {
+                            connectionNotifications = it
+                            notifPrefs.edit().putBoolean("connection_notifications", it).apply()
+                        }) },
+                    if (XposedState.systemUiScopeEnabled) { m -> SwitchRow(m, stringResource(R.string.ui_shade_card), stringResource(R.string.ui_shade_card_desc),
+                        checked = shadeCard,
+                        onCheckedChange = {
+                            shadeCard = it
+                            notifPrefs.edit().putBoolean("shade_card", it).apply()
+                            ServiceManager.getService()?.updateNotificationContent(true)
+                        }) } else null,
+                )
+            )
+
+            SectionHeader(stringResource(R.string.conversational_awareness))
+            SettingsGroup(
+                rows = arrayOf(
+                    { m -> SwitchRow(m, stringResource(R.string.conversational_awareness_pause_music),
+                        stringResource(R.string.conversational_awareness_pause_music_description),
+                        checked = state.conversationalAwarenessPauseMusicEnabled,
+                        onCheckedChange = viewModel::setConversationalAwarenessPauseMusicEnabled,
+                        enabled = state.isPremium) },
+                    { m -> SwitchRow(m, stringResource(R.string.relative_conversational_awareness_volume),
+                        stringResource(R.string.relative_conversational_awareness_volume_description),
+                        checked = state.relativeConversationalAwarenessVolumeEnabled,
+                        onCheckedChange = viewModel::setRelativeConversationalAwarenessVolumeEnabled,
+                        enabled = state.isPremium) },
+                    { m ->
+                        Column(m.padding(horizontal = 20.dp, vertical = 16.dp)) {
+                            Text(stringResource(R.string.conversational_awareness_volume), style = MaterialTheme.typography.bodyLarge)
+                            Slider(
+                                value = state.conversationalAwarenessVolume,
+                                onValueChange = viewModel::setConversationalAwarenessVolume,
+                                valueRange = 10f..85f,
+                                enabled = state.isPremium
+                            )
+                            Text(
+                                "${state.conversationalAwarenessVolume.toInt()}%",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                )
+            )
+
+            if (context.checkSelfPermission("android.permission.BLUETOOTH_PRIVILEGED") == PackageManager.PERMISSION_GRANTED) {
+                SectionHeader(stringResource(R.string.ear_detection))
+                SettingsGroup(
+                    rows = arrayOf(
+                        { m -> SwitchRow(m, stringResource(R.string.disconnect_when_not_wearing),
+                            stringResource(R.string.disconnect_when_not_wearing_description),
+                            checked = state.disconnectWhenNotWearing,
+                            onCheckedChange = viewModel::setDisconnectWhenNotWearing,
+                            enabled = state.isPremium) },
+                    )
+                )
+            }
+        } else {
+            Text(
+                text = stringResource(R.string.customizations_unavailable),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
+            )
+        }
+
+        val restartBluetoothText = stringResource(R.string.found_offset_restart_bluetooth)
+        SectionHeader(stringResource(R.string.advanced_options))
+        SettingsGroup(
+            rows = arrayOf(
+                if (state.connectionSuccessful) { m -> SwitchRow(m, stringResource(R.string.use_alternate_head_tracking_packets),
+                    stringResource(R.string.use_alternate_head_tracking_packets_description),
+                    checked = state.useAlternateHeadTrackingPackets,
+                    onCheckedChange = viewModel::setUseAlternateHeadTrackingPackets,
+                    enabled = state.isPremium) } else null,
+                if (XposedState.isAvailable && XposedState.bluetoothScopeEnabled) { m -> SwitchRow(m,
+                    stringResource(R.string.act_as_an_apple_device) + " (${stringResource(R.string.requires_xposed)})",
+                    stringResource(R.string.act_as_an_apple_device_description),
+                    checked = state.vendorIdHook,
+                    onCheckedChange = { enabled ->
+                        Toast.makeText(context, restartBluetoothText, Toast.LENGTH_SHORT).show()
+                        viewModel.setVendorIdHook(enabled)
+                    }) } else null,
+                if (!BuildConfig.PLAY_BUILD) { m -> SettingsRow(m, stringResource(R.string.troubleshooting), onClick = navigateToTroubleshooting) } else null,
+            )
         )
 
-        if (state.connectionSuccessful) {
-            StyledToggle(
-                title = stringResource(R.string.widget),
-                label = stringResource(R.string.show_phone_battery_in_widget),
-                description = stringResource(R.string.show_phone_battery_in_widget_description),
-                checked = state.showPhoneBatteryInWidget,
-                onCheckedChange = viewModel::setShowPhoneBatteryInWidget,
-                enabled = state.isPremium
-            )
-
-            StyledList(title = stringResource(R.string.popup_animations)) {
-                StyledToggle(
-                    label = stringResource(R.string.show_bottom_sheet_popup),
-                    description = stringResource(R.string.show_bottom_sheet_popup_description),
-                    checked = state.showBottomSheetPopup,
-                    onCheckedChange = viewModel::setShowBottomSheetPopup,
-                )
-
-                StyledToggle(
-                    label = stringResource(R.string.show_island_popup),
-                    description = stringResource(R.string.show_island_popup_description),
-                    checked = state.showIslandPopup,
-                    onCheckedChange = viewModel::setShowIslandPopup,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            StyledList (title = stringResource(R.string.conversational_awareness)) {
-                StyledToggle(
-                    label = stringResource(R.string.conversational_awareness_pause_music),
-                    description = stringResource(R.string.conversational_awareness_pause_music_description),
-                    checked = state.conversationalAwarenessPauseMusicEnabled,
-                    onCheckedChange = viewModel::setConversationalAwarenessPauseMusicEnabled,
-                    enabled = state.isPremium
-                )
-
-                StyledToggle(
-                    label = stringResource(R.string.relative_conversational_awareness_volume),
-                    description = stringResource(R.string.relative_conversational_awareness_volume_description),
-                    checked = state.relativeConversationalAwarenessVolumeEnabled,
-                    onCheckedChange = viewModel::setRelativeConversationalAwarenessVolumeEnabled,
-                    enabled = state.isPremium,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            val conversationalAwarenessVolume = state.conversationalAwarenessVolume
-            LaunchedEffect(conversationalAwarenessVolume) {
-                viewModel.setConversationalAwarenessVolume(conversationalAwarenessVolume)
-            }
-
-            StyledSlider(
-                label = stringResource(R.string.conversational_awareness_volume),
-                value = conversationalAwarenessVolume,
-                valueRange = 10f..85f,
-                snapPoints = listOf(44f),
-                startLabel = "10%",
-                endLabel = "85%",
-                onValueChange = { newValue ->
-                    viewModel.setConversationalAwarenessVolume(
-                        newValue
-                    )
-                },
-                independent = true,
-                enabled = state.isPremium
-            )
-
-//            if (!BuildConfig.PLAY_BUILD) {
-//                Spacer(modifier = Modifier.height(16.dp))
-//
-//                StyledListItem(
-//                    to = "",
-//                    titleRes = stringResource(R.string.camera_control),
-//                    name = stringResource(R.string.set_custom_camera_package),
-//                    navController = navController,
-//                    onClick = {
-//                        if (state.isPremium) viewModel.setShowCameraDialog(true)
-//                    },
-//                    independent = true,
-//                    descriptionRes = stringResource(R.string.camera_control_app_description)
-//                )
-//            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            if (context.checkSelfPermission("android.permission.BLUETOOTH_PRIVILEGED") == PackageManager.PERMISSION_GRANTED) {
-                StyledToggle(
-                    title = stringResource(R.string.ear_detection),
-                    label = stringResource(R.string.disconnect_when_not_wearing),
-                    description = stringResource(R.string.disconnect_when_not_wearing_description),
-                    checked = state.disconnectWhenNotWearing,
-                    onCheckedChange = viewModel::setDisconnectWhenNotWearing,
-                    enabled = state.isPremium
-                )
-            }
-
-            StyledList(title = stringResource(R.string.takeover_airpods_state)) {
-                StyledToggle(
-                    label = stringResource(R.string.takeover_disconnected),
-                    description = stringResource(R.string.takeover_disconnected_desc),
-                    checked = state.takeoverWhenDisconnected,
-                    onCheckedChange = viewModel::setTakeoverWhenDisconnected,
-                    enabled = state.isPremium
-                )
-                StyledToggle(
-                    label = stringResource(R.string.takeover_idle),
-                    description = stringResource(R.string.takeover_idle_desc),
-                    checked = state.takeoverWhenIdle,
-                    onCheckedChange = viewModel::setTakeoverWhenIdle,
-                    enabled = state.isPremium
-                )
-                StyledToggle(
-                    label = stringResource(R.string.takeover_music),
-                    description = stringResource(R.string.takeover_music_desc),
-                    checked = state.takeoverWhenMusic,
-                    onCheckedChange = viewModel::setTakeoverWhenMusic,
-                    enabled = state.isPremium
-                )
-
-                StyledToggle(
-                    label = stringResource(R.string.takeover_call),
-                    description = stringResource(R.string.takeover_call_desc),
-                    checked = state.takeoverWhenCall,
-                    onCheckedChange = viewModel::setTakeoverWhenCall,
-                    enabled = state.isPremium
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            StyledList(title = stringResource(R.string.takeover_phone_state)) {
-                StyledToggle(
-                    label = stringResource(R.string.takeover_ringing_call),
-                    description = stringResource(R.string.takeover_ringing_call_desc),
-                    checked = state.takeoverWhenRingingCall,
-                    onCheckedChange = viewModel::setTakeoverWhenRingingCall,
-                    enabled = state.isPremium
-                )
-                StyledToggle(
-                    label = stringResource(R.string.takeover_media_start),
-                    description = stringResource(R.string.takeover_media_start_desc),
-                    checked = state.takeoverWhenMediaStart,
-                    onCheckedChange = viewModel::setTakeoverWhenMediaStart,
-                    enabled = state.isPremium
-                )
-            }
-
-            StyledToggle(
-                title = stringResource(R.string.advanced_options), // shouldn't be here, but okay
-                label = stringResource(R.string.use_alternate_head_tracking_packets),
-                description = stringResource(R.string.use_alternate_head_tracking_packets_description),
-                checked = state.useAlternateHeadTrackingPackets,
-                onCheckedChange = viewModel::setUseAlternateHeadTrackingPackets,
-                enabled = state.isPremium
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-        } else {
-            Box(
-                modifier = Modifier
-                    .background(MaterialTheme.colorScheme.surfaceContainer)
-                    .padding(horizontal = 16.dp)
-                    .padding(top = 16.dp, bottom = 2.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.customizations_unavailable),
-                    style = MaterialTypography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                )
-            }
-        }
-
-        if (XposedState.isAvailable && XposedState.bluetoothScopeEnabled) {
-            val restartBluetoothText = stringResource(R.string.found_offset_restart_bluetooth)
-            StyledToggle(
-                label = stringResource(R.string.act_as_an_apple_device) + " (${
-                    stringResource(
-                        R.string.requires_xposed
-                    )
-                })",
-                description = stringResource(R.string.act_as_an_apple_device_description),
-                checked = state.vendorIdHook,
-                onCheckedChange = { enabled ->
-                    Toast.makeText(context, restartBluetoothText, Toast.LENGTH_SHORT).show()
-                    viewModel.setVendorIdHook(enabled)
-                }
-            )
-        }
-
-        if (!BuildConfig.PLAY_BUILD) {
-            Spacer(modifier = Modifier.height(16.dp))
-            StyledList {
-                StyledListItem(
-                    name = stringResource(R.string.troubleshooting),
-                    onClick = navigateToTroubleshooting,
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        StyledList(title = stringResource(R.string.contact)) {
-            StyledListItem(
-                name = stringResource(R.string.email),
-                onClick = { contactBottomSheet.value = true },
-            )
-
-            StyledListItem(
-                name = stringResource(R.string.discord),
-                onClick = {
-                    val intent =
-                        Intent(Intent.ACTION_VIEW, "https://discord.gg/Ts4wupXcmc".toUri())
-                    context.startActivity(intent)
-                },
-            )
-
-            StyledListItem(
-                name = stringResource(R.string.github_issues),
-                onClick = {
-                    val appVersion =
-                        Uri.encode("v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+        SectionHeader(stringResource(R.string.contact))
+        SettingsGroup(
+            rows = arrayOf(
+                { m -> SettingsRow(m, stringResource(R.string.email), onClick = { contactBottomSheet.value = true }) },
+                { m -> SettingsRow(m, stringResource(R.string.discord), onClick = {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, "https://discord.gg/Ts4wupXcmc".toUri()))
+                }) },
+                { m -> SettingsRow(m, stringResource(R.string.github_issues), onClick = {
+                    val appVersion = Uri.encode("v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
                     val device = Uri.encode("${Build.MANUFACTURER} ${Build.MODEL}")
                     val androidVersion = Uri.encode("${Build.ID} (${Build.DISPLAY})")
-                    val appSource = Uri.encode(
-                        when {
-                            BuildConfig.PLAY_BUILD -> "Play"
-                            else -> "GitHub"
-                        }
-                    )
+                    val appSource = Uri.encode(if (BuildConfig.PLAY_BUILD) "Play" else "GitHub")
                     val url = "https://github.com/kavishdevar/librepods/issues/new" +
                         "?template=01-bug-report-android.yml" +
                         "&app-source=$appSource" +
                         "&app-version=$appVersion" +
                         "&device=$device" +
                         "&android-version=$androidVersion"
-
-                    val intent = Intent(Intent.ACTION_VIEW, url.toUri())
-                    context.startActivity(intent)
-                },
+                    context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
+                }) },
             )
-        }
+        )
 
         Spacer(modifier = Modifier.height(20.dp))
         DeviceInfoCard()

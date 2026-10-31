@@ -13,6 +13,9 @@ import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 
 private const val TAG = "LibrePodsHook"
 
+/** Set on LibrePods' shade card notification so the SystemUI hook can recognise it. */
+const val SHADE_CARD_EXTRA = "me.kavishdevar.librepods.SHADE_CARD"
+
 @SuppressLint("DiscouragedApi", "PrivateApi")
 class KotlinModule: XposedModule() {
     override fun onModuleLoaded(param: ModuleLoadedParam) {
@@ -68,12 +71,38 @@ class KotlinModule: XposedModule() {
             }
         }
 
+        if (param.packageName == "com.android.systemui") {
+            hookShadeCard(param)
+        }
+
         if (param.packageName == "com.google.android.settings") {
             hookSettingsController(param, "com.google.android.settings.bluetooth.AdvancedBluetoothDetailsHeaderController")
         }
 
         if (param.packageName == "com.android.settings") {
             hookSettingsController(param, "com.android.settings.bluetooth.AdvancedBluetoothDetailsHeaderController")
+        }
+    }
+
+    /**
+     * Since Android 12 SystemUI wraps every fully custom notification in the standard header
+     * (app icon, app name, expand chevron). For LibrePods' shade card we want the card itself to be
+     * the notification, so skip that decoration for notifications flagged as the shade card.
+     */
+    // Runs inside SystemUI as an Xposed hook, where hidden-API reflection is expected.
+    @android.annotation.SuppressLint("BlockedPrivateApi", "DiscouragedPrivateApi", "SoonBlockedPrivateApi")
+    private fun hookShadeCard(param: PackageLoadedParam) {
+        try {
+            val builderClass = Class.forName("android.app.Notification\$Builder", false, param.defaultClassLoader)
+            val method = builderClass.getDeclaredMethod("fullyCustomViewRequiresDecoration", Boolean::class.javaPrimitiveType)
+            val notificationField = builderClass.getDeclaredField("mN").apply { isAccessible = true }
+            hook(method).intercept { chain ->
+                val notification = runCatching { notificationField.get(chain.thisObject) as? android.app.Notification }.getOrNull()
+                if (notification?.extras?.getBoolean(SHADE_CARD_EXTRA) == true) false else chain.proceed()
+            }
+            log(Log.INFO, TAG, "Hooked fullyCustomViewRequiresDecoration for the shade card")
+        } catch (e: Throwable) {
+            log(Log.ERROR, TAG, "Failed to hook shade card decoration: ${e.message}")
         }
     }
 

@@ -21,6 +21,7 @@
 package me.kavishdevar.librepods.utils
 
 import android.content.SharedPreferences
+import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.AudioPlaybackConfiguration
 import android.os.Build
@@ -50,6 +51,10 @@ object MediaController {
     private const val PLAYBACK_DEBOUNCE_MS = 300L
     private var lastPlaybackCallbackAt: Long = 0L
     private var lastKnownIsMusicActive: Boolean? = null
+    private var lastSentStreamingState: Boolean? = null
+    private var lastTakeOverRequestAt: Long = 0L
+    private const val TAKE_OVER_RETRY_MS = 4000L
+    private const val OWNERSHIP_LOSS_GRACE_MS = 1500L
 
     private const val PAUSED_FOR_OTHER_DEVICE_CLEAR_MS = 500L
     private val clearPausedForOtherDeviceRunnable = Runnable {
@@ -101,7 +106,9 @@ object MediaController {
         override fun onPlaybackConfigChanged(configs: MutableList<AudioPlaybackConfiguration>?) {
             super.onPlaybackConfigChanged(configs)
             val now = SystemClock.uptimeMillis()
-            val isActive = audioManager.isMusicActive
+            // isMusicActive lags behind a pause by a few seconds, and a privileged app also gets
+            // paused/idle players here, so only count players that are actually started
+            val isActive = isMediaPlaying(configs)
             Log.d("MediaController", "Playback config changed, iPausedTheMedia: $iPausedTheMedia, isActive: $isActive, pausedForOtherDevice: $pausedForOtherDevice, lastKnownIsMusicActive: $lastKnownIsMusicActive")
 
             if (!isActive && lastPlayWithReplay && now - lastPlayTime < 2500L) {
@@ -126,80 +133,93 @@ object MediaController {
             }
 
             Log.d("MediaController", "Configs received: ${configs?.size ?: 0} configurations")
-            val currentActiveContentTypes = configs?.flatMap { config ->
-                Log.d("MediaController", "Processing config: ${config}, audioAttributes: ${config.audioAttributes}")
-                config.audioAttributes?.let { attrs ->
-                    val contentType = attrs.contentType
-                    Log.d("MediaController", "Config content type: $contentType")
-                    listOf(contentType)
-                } ?: run {
-                    Log.d("MediaController", "Config has no audioAttributes")
-                    emptyList()
-                }
-            }?.toSet() ?: emptySet()
+            // Playback is often USAGE_MEDIA/USAGE_GAME with CONTENT_TYPE_UNKNOWN (YouTube, games,
+            // podcasts), so decide on the usage first and only fall back to the content type.
+            val playingConfigs = configs ?: emptyList()
+            val hasMediaPlayback = isActive
 
-            Log.d("MediaController", "Current active content types: $currentActiveContentTypes")
-
-            val hasNewMusicOrMovie = currentActiveContentTypes.any { contentType ->
-                contentType == android.media.AudioAttributes.CONTENT_TYPE_MUSIC ||
-                contentType == android.media.AudioAttributes.CONTENT_TYPE_MOVIE
-            }
-
-            Log.d("MediaController", "Has new music or movie: $hasNewMusicOrMovie")
+            Log.d("MediaController", "Has media playback: $hasMediaPlayback (${playingConfigs.size} configs)")
 
             if (pausedForOtherDevice) {
                 handler.removeCallbacks(clearPausedForOtherDeviceRunnable)
                 handler.postDelayed(clearPausedForOtherDeviceRunnable, PAUSED_FOR_OTHER_DEVICE_CLEAR_MS)
-
-                if (isActive) {
-                    Log.d("MediaController", "Detected play while pausedForOtherDevice; attempting to take over")
-                    if (!recentlyLostOwnership && hasNewMusicOrMovie) {
-                        pausedForOtherDevice = false
-                        userPlayedTheMedia = true
-                        if (!pausedWhileTakingOver) {
-                            ServiceManager.getService()?.takeOver("music")
-                        }
-                    } else {
-                        Log.d("MediaController", "Skipping take-over due to recent ownership loss or no new music/movie")
-                    }
-                } else {
-                    Log.d("MediaController", "Still not active while pausedForOtherDevice; will clear state after timeout")
+                if (isActive && hasMediaPlayback) {
+                    Log.d("MediaController", "Playback resumed after another device took over")
+                    pausedForOtherDevice = false
+                    userPlayedTheMedia = true
                 }
-
-                lastKnownIsMusicActive = isActive
-                return
             }
 
             if (configs != null && !iPausedTheMedia) {
-                val localMac = ServiceManager.getService()?.localMac ?: return
-                if (localMac == "") return
-                ServiceManager.getService()?.aacpManager?.sendMediaInformataion(
-                    localMac,
-                    isActive
-                )
-                Log.d("MediaController", "User changed media state themselves; will wait for ear detection pause before auto-play")
+                val localMac = ServiceManager.getService()?.localMac
+                if (localMac != null && localMac != "") {
+                    val streaming = isActive && hasMediaPlayback
+                    if (streaming != lastSentStreamingState) {
+                        lastSentStreamingState = streaming
+                        ServiceManager.getService()?.aacpManager?.sendMediaInformataion(localMac, streaming)
+                    }
+                }
                 handler.postDelayed({
                     userPlayedTheMedia = audioManager.isMusicActive
-                    if (audioManager.isMusicActive) {
-                        pausedForOtherDevice = false
-                    }
                 }, 7)
             }
 
-            Log.d("MediaController", "pausedWhileTakingOver: $pausedWhileTakingOver")
-            if (!pausedWhileTakingOver && isActive && hasNewMusicOrMovie) {
-                if (lastKnownIsMusicActive != true) {
-                    if (!recentlyLostOwnership) {
-                        Log.d("MediaController", "Music/movie is active and not pausedWhileTakingOver; requesting takeOver")
-                        ServiceManager.getService()?.takeOver("music")
-                    } else {
-                        Log.d("MediaController", "Skipping take-over due to recent ownership loss")
+            val playbackStarted = isActive && hasMediaPlayback && lastKnownIsMusicActive != true
+            Log.d("MediaController", "pausedWhileTakingOver: $pausedWhileTakingOver, recentlyLostOwnership: $recentlyLostOwnership, playbackStarted: $playbackStarted")
+            if (playbackStarted && !pausedWhileTakingOver) {
+                // An iPhone grabs the AirPods as soon as it starts playing, even while another device
+                // is streaming. Do the same, but give our own pause a moment to land after an
+                // ownership loss instead of dropping the take-over entirely.
+                val delay = if (recentlyLostOwnership) OWNERSHIP_LOSS_GRACE_MS else 0L
+                Log.d("MediaController", "Media started; requesting take-over in ${delay}ms")
+                handler.postDelayed({
+                    if (!pausedWhileTakingOver && lastKnownIsMusicActive == true) {
+                        requestTakeOver()
                     }
-                }
+                }, delay)
             }
 
-            lastKnownIsMusicActive = hasNewMusicOrMovie && isActive
+            lastKnownIsMusicActive = isActive && hasMediaPlayback
         }
+    }
+
+    private val PLAYER_STATE_STARTED = 2
+
+    private fun isStarted(config: AudioPlaybackConfiguration): Boolean = try {
+        // @SystemApi, available to us as a priv-app
+        AudioPlaybackConfiguration::class.java.getMethod("getPlayerState").invoke(config) == PLAYER_STATE_STARTED
+    } catch (e: Exception) {
+        true
+    }
+
+    private fun isMediaPlaying(configs: List<AudioPlaybackConfiguration>?): Boolean {
+        // Playback is often USAGE_MEDIA/USAGE_GAME with CONTENT_TYPE_UNKNOWN (YouTube, games,
+        // podcasts), so decide on the usage first and only fall back to the content type.
+        return configs?.any { config ->
+            val attrs = config.audioAttributes ?: return@any false
+            isStarted(config) && (attrs.usage == AudioAttributes.USAGE_MEDIA ||
+                attrs.usage == AudioAttributes.USAGE_GAME ||
+                attrs.contentType == AudioAttributes.CONTENT_TYPE_MUSIC ||
+                attrs.contentType == AudioAttributes.CONTENT_TYPE_MOVIE ||
+                attrs.contentType == AudioAttributes.CONTENT_TYPE_SPEECH)
+        } ?: false
+    }
+
+    private fun requestTakeOver() {
+        val service = ServiceManager.getService() ?: return
+        val now = SystemClock.uptimeMillis()
+        if (now - lastTakeOverRequestAt < TAKE_OVER_RETRY_MS) {
+            Log.d("MediaController", "Skipping take-over request, last one was ${now - lastTakeOverRequestAt}ms ago")
+            return
+        }
+        lastTakeOverRequestAt = now
+        Log.d("MediaController", "Requesting take-over")
+        service.takeOver("music")
+    }
+
+    /** Another device connected/disconnected, so the streaming state has to be announced again. */
+    fun resetStreamingState() {
+        lastSentStreamingState = null
     }
 
     @Synchronized

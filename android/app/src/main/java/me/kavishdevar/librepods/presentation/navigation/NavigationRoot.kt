@@ -52,7 +52,7 @@ fun NavigationRoot(
 
     val title = when (currentScreen) {
         Screen.Onboarding -> ""
-        Screen.AirPodsSettings -> if (state.isLocallyConnected) state.deviceName else stringResource(R.string.app_name)
+        Screen.AirPodsSettings -> ""
         Screen.Accessibility -> stringResource(R.string.accessibility)
         Screen.AdaptiveStrength -> stringResource(R.string.customize_adaptive_audio)
         Screen.AppSettings -> stringResource(R.string.settings)
@@ -72,6 +72,8 @@ fun NavigationRoot(
         Screen.VersionInfo -> stringResource(R.string.version)
         is Screen.CallControl -> currentScreen.action
         Screen.MicrophoneSettings -> stringResource(R.string.microphone_mode)
+        Screen.Sound -> stringResource(R.string.ui_sound)
+        Screen.Controls -> stringResource(R.string.ui_controls)
         Screen.ReleaseNotes -> ""
     }
 

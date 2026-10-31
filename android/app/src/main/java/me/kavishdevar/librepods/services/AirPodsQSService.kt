@@ -35,6 +35,8 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import me.kavishdevar.librepods.QuickSettingsDialogActivity
 import me.kavishdevar.librepods.R
+import me.kavishdevar.librepods.data.BatteryStatus
+import me.kavishdevar.librepods.data.BatteryComponent
 import me.kavishdevar.librepods.bluetooth.AACPManager
 import me.kavishdevar.librepods.bluetooth.BluetoothConnectionManager
 import me.kavishdevar.librepods.data.AirPodsNotifications
@@ -146,19 +148,12 @@ class AirPodsQSService : TileService() {
 
     override fun onClick() {
         super.onClick()
-        Log.d("AirPodsQSService", "onClick - Current state: $isAirPodsConnected, Current mode: $currentAncMode")
         if (!isAirPodsConnected) {
-            Log.d("AirPodsQSService", "Tile clicked but AirPods not connected.")
+            // Not connected: the tile doubles as a connect button.
+            ServiceManager.getService()?.reconnectFromSavedMac()
             return
         }
-
-        val clickBehavior = "cycle" // sharedPreferences.getString("qs_click_behavior", "dialog") ?: "dialog"
-
-        if (clickBehavior == "dialog") {
-            launchDialogActivity()
-        } else {
-            cycleAncMode()
-        }
+        launchDialogActivity()
     }
 
     private fun launchDialogActivity() {
@@ -206,17 +201,20 @@ class AirPodsQSService : TileService() {
         Log.d("AirPodsQSService", "updateTile - Connected: $isAirPodsConnected, Mode: $currentAncMode")
 
         val deviceName = sharedPreferences.getString("name", "AirPods") ?: "AirPods"
+        val level = ServiceManager.getService()?.getBattery().orEmpty()
+            .filter { it.status != BatteryStatus.DISCONNECTED && it.component != BatteryComponent.CASE && it.level > 0 }
+            .minOfOrNull { it.level }
 
         if (isAirPodsConnected) {
             tile.state = Tile.STATE_ACTIVE
-            tile.label = getModeLabel(currentAncMode)
-            tile.subtitle = deviceName
+            tile.label = deviceName
+            tile.subtitle = listOfNotNull(level?.let { "$it%" }, getModeLabel(currentAncMode)).joinToString(" · ")
             tile.icon = Icon.createWithResource(this, getModeIcon(currentAncMode))
         } else {
-            tile.state = Tile.STATE_UNAVAILABLE
-            tile.label = "AirPods"
-            tile.subtitle = "Disconnected"
-            tile.icon = Icon.createWithResource(this, R.drawable.airpods)
+            tile.state = Tile.STATE_INACTIVE
+            tile.label = deviceName
+            tile.subtitle = getString(R.string.widget_not_connected)
+            tile.icon = Icon.createWithResource(this, R.drawable.ic_w_earbuds)
         }
 
         try {
@@ -264,11 +262,11 @@ class AirPodsQSService : TileService() {
 
      private fun getModeIcon(mode: Int): Int {
          return when (mode) {
-             NoiseControlMode.OFF.ordinal + 1 -> R.drawable.noise_cancellation
-             NoiseControlMode.TRANSPARENCY.ordinal + 1 -> R.drawable.transparency
-             NoiseControlMode.ADAPTIVE.ordinal + 1 -> R.drawable.adaptive
-             NoiseControlMode.NOISE_CANCELLATION.ordinal + 1 -> R.drawable.noise_cancellation
-             else -> R.drawable.airpods
+             NoiseControlMode.OFF.ordinal + 1 -> R.drawable.ic_w_noise_control_off_fill
+             NoiseControlMode.TRANSPARENCY.ordinal + 1 -> R.drawable.ic_w_hearing_fill
+             NoiseControlMode.ADAPTIVE.ordinal + 1 -> R.drawable.ic_w_auto_awesome_fill
+             NoiseControlMode.NOISE_CANCELLATION.ordinal + 1 -> R.drawable.ic_w_noise_control_on_fill
+             else -> R.drawable.ic_w_earbuds
          }
      }
 

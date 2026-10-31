@@ -16,15 +16,12 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-@file:OptIn(ExperimentalEncodingApi::class)
-
 package me.kavishdevar.librepods.presentation.widgets
 
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
-import me.kavishdevar.librepods.services.ServiceManager
-import kotlin.io.encoding.ExperimentalEncodingApi
+import android.content.Intent
 
 class BatteryWidget : AppWidgetProvider() {
     override fun onUpdate(
@@ -32,6 +29,16 @@ class BatteryWidget : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        ServiceManager.getService()?.updateBattery()
+        WidgetRenderer.update(context, appWidgetManager, BatteryWidget::class.java, appWidgetIds)
+    }
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        WidgetRenderer.forgetWidgets(context, appWidgetIds)
+    }
+
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        val pending = goAsync()
+        WidgetRenderer.handleAction(context, intent) { pending.finish() }
     }
 }

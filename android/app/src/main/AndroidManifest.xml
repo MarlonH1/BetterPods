@@ -21,6 +21,9 @@
         android:name="android.permission.MODIFY_PHONE_STATE"
         tools:ignore="ProtectedPermissions" />
     <uses-permission
+        android:name="android.permission.MODIFY_AUDIO_ROUTING"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission
         android:name="android.permission.LOCAL_MAC_ADDRESS"
         tools:ignore="ProtectedPermissions" />
     <uses-permission
@@ -79,6 +82,40 @@
                 android:resource="@xml/battery_widget_info" />
         </receiver>
 
+        <receiver
+            android:name=".presentation.widgets.BatteryWidgetSmall"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/battery_widget_small_info" />
+        </receiver>
+
+        <receiver
+            android:name=".presentation.widgets.NoiseControlWidgetGrid"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/noise_control_widget_grid_info" />
+        </receiver>
+
+        <activity
+            android:name=".presentation.widgets.WidgetConfigActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.TransparentDialog">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -116,7 +153,7 @@
             android:name=".services.AirPodsQSService"
             android:exported="true"
             android:icon="@drawable/airpods"
-            android:label="ANC Mode"
+            android:label="AirPods"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />

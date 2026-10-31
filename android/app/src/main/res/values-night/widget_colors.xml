@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_surface">@android:color/system_neutral1_900</color>
+    <color name="widget_surface_highest">@android:color/system_neutral1_800</color>
+    <color name="widget_on_surface">@android:color/system_neutral1_100</color>
+    <color name="widget_on_surface_variant">@android:color/system_neutral2_200</color>
+    <color name="widget_primary">@android:color/system_accent1_200</color>
+    <color name="widget_on_primary">@android:color/system_accent1_800</color>
+    <color name="widget_primary_container">@android:color/system_accent1_700</color>
+    <color name="widget_on_primary_container">@android:color/system_accent1_100</color>
+    <color name="widget_secondary_container">@android:color/system_accent2_700</color>
+    <color name="widget_on_secondary_container">@android:color/system_accent2_100</color>
+    <color name="widget_tertiary">@android:color/system_accent3_200</color>
+    <color name="widget_tertiary_container">@android:color/system_accent3_700</color>
+    <color name="widget_error">#FFFFB4AB</color>
+    <color name="widget_error_container">#FF93000A</color>
+    <color name="widget_outline_variant">@android:color/system_neutral2_700</color>
+    <color name="nc_mode_idle">#1FFFFFFF</color>
+</resources>

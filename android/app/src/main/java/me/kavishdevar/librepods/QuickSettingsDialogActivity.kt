@@ -16,624 +16,280 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-@file:OptIn(ExperimentalEncodingApi::class)
+@file:OptIn(ExperimentalEncodingApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 
 package me.kavishdevar.librepods
 
-import android.annotation.SuppressLint
-import android.content.BroadcastReceiver
-import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
-import android.content.ServiceConnection
-import android.media.AudioManager
-import android.os.Build
 import android.os.Bundle
-import android.os.IBinder
-import android.util.Log
 import android.view.Gravity
-import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.launch
-import me.kavishdevar.librepods.presentation.components.AdaptiveRainbowBrush
-import me.kavishdevar.librepods.presentation.components.ControlCenterNoiseControlSegmentedButton
-import me.kavishdevar.librepods.presentation.components.IconAreaSize
-import me.kavishdevar.librepods.presentation.components.VerticalVolumeSlider
-import me.kavishdevar.librepods.data.AirPodsNotifications
-import me.kavishdevar.librepods.data.NoiseControlMode
-import me.kavishdevar.librepods.services.AirPodsService
-import me.kavishdevar.librepods.presentation.theme.LibrePodsTheme
+import kotlinx.coroutines.delay
 import me.kavishdevar.librepods.bluetooth.AACPManager
+import me.kavishdevar.librepods.bluetooth.AACPManager.Companion.ControlCommandIdentifiers
+import me.kavishdevar.librepods.bluetooth.BluetoothConnectionManager
+import me.kavishdevar.librepods.data.AirPodsMax
+import me.kavishdevar.librepods.data.Battery
+import me.kavishdevar.librepods.data.BatteryComponent
+import me.kavishdevar.librepods.data.BatteryStatus
+import me.kavishdevar.librepods.data.Capability
+import me.kavishdevar.librepods.presentation.components.ListeningModeGroup
+import me.kavishdevar.librepods.presentation.components.listeningModeOptions
+import me.kavishdevar.librepods.presentation.theme.LibrePodsTheme
+import me.kavishdevar.librepods.presentation.widgets.WidgetRenderer
+import me.kavishdevar.librepods.services.CompanionSessions
+import me.kavishdevar.librepods.services.ServiceManager
 import kotlin.io.encoding.ExperimentalEncodingApi
-import kotlin.math.abs
 
+/**
+ * Opened from the Quick Settings tile. Styled after SystemUI's own tile dialogs (Bluetooth,
+ * Internet): centered, blurred backdrop, icon + title header, device rows and Settings/Done.
+ */
 class QuickSettingsDialogActivity : ComponentActivity() {
-
-    private var airPodsService: AirPodsService? = null
-    private var isBound = false
-
-    private var isNoiseControlExpandedState by mutableStateOf(false)
-
-    private val connection = object : ServiceConnection {
-        override fun onServiceConnected(className: ComponentName, service: IBinder) {
-            val binder = service as AirPodsService.LocalBinder
-            airPodsService = binder.getService()
-            isBound = true
-            Log.d("QSActivity", "Service bound")
-            setContent {
-                LibrePodsTheme {
-                    DraggableDismissBox(
-                        onDismiss = { finish() },
-                        onlyCollapseWhenClicked = {
-                            if (isNoiseControlExpandedState) {
-                                isNoiseControlExpandedState = false
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    ) {
-                        if (isBound && airPodsService != null) {
-                            NewControlCenterDialogContent(
-                                service = airPodsService,
-                                isNoiseControlExpanded = isNoiseControlExpandedState,
-                                onNoiseControlExpandedChange = { isNoiseControlExpandedState = it }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        override fun onServiceDisconnected(arg0: ComponentName) {
-            isBound = false
-            airPodsService = null
-            Log.d("QSActivity", "Service unbound")
-            finish()
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL)
-        window.addFlags(WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH)
-        window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-        window.setGravity(Gravity.BOTTOM)
-
-        Intent(this, AirPodsService::class.java).also { intent ->
-            bindService(intent, connection, BIND_AUTO_CREATE)
+        window.setGravity(Gravity.CENTER)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+            window.attributes = window.attributes.apply { blurBehindRadius = 80 }
         }
-
+        window.setDimAmount(0.4f)
         setContent {
             LibrePodsTheme {
-                DraggableDismissBox(
-                    onDismiss = { finish() },
-                    onlyCollapseWhenClicked = {
-                        if (isNoiseControlExpandedState) {
-                            isNoiseControlExpandedState = false
-                            true
-                        } else {
-                            false
-                        }
-                    }
+                var visible by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) { visible = true }
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .clickable(remember { MutableInteractionSource() }, null) { finish() },
+                    contentAlignment = Alignment.Center
                 ) {
-                    if (isBound && airPodsService != null) {
-                        NewControlCenterDialogContent(
-                            service = airPodsService,
-                            isNoiseControlExpanded = isNoiseControlExpandedState,
-                            onNoiseControlExpandedChange = { isNoiseControlExpandedState = it }
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        if (isBound) {
-            unbindService(connection)
-            isBound = false
-        }
-    }
-}
-
-@Composable
-fun DraggableDismissBox(
-    onDismiss: () -> Unit,
-    onlyCollapseWhenClicked: () -> Boolean,
-    content: @Composable () -> Unit
-) {
-    val coroutineScope = rememberCoroutineScope()
-
-    var dragOffset by remember { mutableFloatStateOf(0f) }
-    var isDragging by remember { mutableStateOf(false) }
-    val dismissThreshold = 400f
-
-    val animatedOffset = remember { Animatable(0f) }
-    val animatedScale = remember { Animatable(1f) }
-    val animatedAlpha = remember { Animatable(1f) }
-
-    val backgroundAlpha by animateFloatAsState(
-        targetValue = if (isDragging) {
-            val dragProgress = (abs(dragOffset) / 800f).coerceIn(0f, 0.8f)
-            1f - dragProgress
-        } else 1f,
-        label = "BackgroundFade"
-    )
-
-    LaunchedEffect(isDragging) {
-        if (!isDragging) {
-            if (abs(dragOffset) < dismissThreshold) {
-                val springSpec = spring(
-                    dampingRatio = Spring.DampingRatioLowBouncy,
-                    stiffness = Spring.StiffnessHigh,
-                    visibilityThreshold = 0.1f
-                )
-                launch { animatedOffset.animateTo(0f, springSpec) }
-                launch { animatedScale.animateTo(1f, springSpec) }
-                launch { animatedAlpha.animateTo(1f, tween(100)) }
-                dragOffset = 0f
-            }
-        }
-    }
-
-    LaunchedEffect(dragOffset, isDragging) {
-        if (isDragging) {
-            val dragProgress = (abs(dragOffset) / 1000f).coerceIn(0f, 0.5f)
-
-            animatedOffset.snapTo(dragOffset)
-            animatedScale.snapTo(1f - dragProgress * 0.3f)
-            animatedAlpha.snapTo(1f - dragProgress * 0.7f)
-        }
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.5f * backgroundAlpha))
-            .pointerInput(Unit) {
-                detectVerticalDragGestures(
-                    onDragStart = { isDragging = true },
-                    onDragEnd = {
-                        isDragging = false
-                        if (abs(dragOffset) > dismissThreshold) {
-                            coroutineScope.launch {
-                                val direction = if (dragOffset > 0) 1f else -1f
-
-                                launch {
-                                    animatedOffset.animateTo(
-                                        direction * 1500f,
-                                        tween(350, easing = FastOutSlowInEasing)
-                                    )
-                                }
-                                launch { animatedScale.animateTo(0.7f, tween(350)) }
-                                launch { animatedAlpha.animateTo(0f, tween(250)) }
-
-                                kotlinx.coroutines.delay(350)
-                                onDismiss()
-                            }
-                        }
-                    },
-                    onDragCancel = { isDragging = false },
-                    onVerticalDrag = { change, dragAmount ->
-                        change.consume()
-                        dragOffset += dragAmount
-                    }
-                )
-            }
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                onlyCollapseWhenClicked()
-            },
-        contentAlignment = Alignment.BottomCenter
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .graphicsLayer(
-                    translationY = animatedOffset.value,
-                    scaleX = animatedScale.value,
-                    scaleY = animatedScale.value,
-                    alpha = animatedAlpha.value
-                ),
-            contentAlignment = Alignment.BottomCenter
-        ) {
-            content()
-        }
-    }
-}
-
-@SuppressLint("UnspecifiedRegisterReceiverFlag")
-@Composable
-fun NewControlCenterDialogContent(
-    service: AirPodsService?,
-    isNoiseControlExpanded: Boolean,
-    onNoiseControlExpandedChange: (Boolean) -> Unit
-) {
-    val context = LocalContext.current
-    val sharedPreferences = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
-    val textColor = Color.White
-
-    var currentAncMode by remember { mutableStateOf(NoiseControlMode.TRANSPARENCY) }
-    var isConvAwarenessEnabled by remember { mutableStateOf(false) }
-
-    val isOffModeEnabled = remember { sharedPreferences.getBoolean("off_listening_mode", true) }
-    val availableModes = remember(isOffModeEnabled) {
-        mutableListOf(
-            NoiseControlMode.TRANSPARENCY,
-            NoiseControlMode.ADAPTIVE,
-            NoiseControlMode.NOISE_CANCELLATION
-        ).apply {
-            if (isOffModeEnabled) {
-                add(0, NoiseControlMode.OFF)
-            }
-        }
-    }
-
-    val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-    val maxVolume = remember { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) }
-    var currentVolumeInt by remember { mutableIntStateOf(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)) }
-    val animatedVolumeFraction by animateFloatAsState(
-        targetValue = currentVolumeInt.toFloat() / maxVolume.toFloat(),
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioLowBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "VolumeAnimation"
-    )
-    var liveDragFraction by remember { mutableFloatStateOf(animatedVolumeFraction) }
-    var isDraggingVolume by remember { mutableStateOf(false) }
-    LaunchedEffect(animatedVolumeFraction, isDraggingVolume) {
-        if (!isDraggingVolume) {
-            liveDragFraction = animatedVolumeFraction
-        }
-    }
-
-    DisposableEffect(service, availableModes) {
-        val ancReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
-                if (intent.action == AirPodsNotifications.ANC_DATA && service != null) {
-                    val newModeOrdinal = intent.getIntExtra("data", NoiseControlMode.TRANSPARENCY.ordinal + 1) - 1
-                    val newMode = NoiseControlMode.entries.getOrElse(newModeOrdinal) { NoiseControlMode.TRANSPARENCY }
-                    if (availableModes.contains(newMode)) {
-                         currentAncMode = newMode
-                    } else if (newMode == NoiseControlMode.OFF && !isOffModeEnabled) {
-                        currentAncMode = NoiseControlMode.TRANSPARENCY
-                    }
-                    Log.d("QSActivity", "ANC Receiver updated mode to: $currentAncMode (available: ${availableModes.joinToString()})")
-                }
-            }
-        }
-        val filter = IntentFilter(AirPodsNotifications.ANC_DATA)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(ancReceiver, filter, Context.RECEIVER_EXPORTED)
-        } else {
-            context.registerReceiver(ancReceiver, filter)
-        }
-
-        service?.let {
-            val initialModeOrdinal = it.getANC().minus(1)
-            var initialMode = NoiseControlMode.entries.getOrElse(initialModeOrdinal) { NoiseControlMode.TRANSPARENCY }
-            if (!availableModes.contains(initialMode)) {
-                initialMode = NoiseControlMode.TRANSPARENCY
-            }
-            currentAncMode = initialMode
-            isConvAwarenessEnabled = sharedPreferences.getBoolean("conversational_awareness", true)
-            Log.d("QSActivity", "Initial ANC: $currentAncMode, ConvAware: $isConvAwarenessEnabled")
-        }
-
-        onDispose {
-            context.unregisterReceiver(ancReceiver)
-        }
-    }
-
-    DisposableEffect(Unit) {
-        val volumeReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
-                if (intent.action == "android.media.VOLUME_CHANGED_ACTION") {
-                    val newVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-                    if (newVolume != currentVolumeInt) {
-                        currentVolumeInt = newVolume
-                        Log.d("QSActivity", "Volume Receiver updated volume to: $currentVolumeInt")
-                    }
-                }
-            }
-        }
-        val filter = IntentFilter("android.media.VOLUME_CHANGED_ACTION")
-        context.registerReceiver(volumeReceiver, filter)
-        onDispose {
-            context.unregisterReceiver(volumeReceiver)
-        }
-    }
-
-    val deviceName = remember { sharedPreferences.getString("name", "AirPods") ?: "AirPods" }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Transparent)
-            .padding(horizontal = 24.dp)
-            .pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        awaitPointerEvent()
-                    }
-                }
-            },
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
-    ) {
-        if (service != null) {
-            Spacer(modifier = Modifier.weight(1f))
-
-            Column(
-                modifier = Modifier
-                    .weight(2f)
-                    .fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.airpods),
-                    contentDescription = "Device Icon",
-                    tint = textColor.copy(alpha = 0.8f),
-                    modifier = Modifier.size(48.dp)
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = deviceName,
-                    color = textColor,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                VerticalVolumeSlider(
-                    displayFraction = animatedVolumeFraction,
-                    maxVolume = maxVolume,
-                    onVolumeChange = { newVolume ->
-                        currentVolumeInt = newVolume
-                        try {
-                            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVolume, 0)
-                        } catch (e: Exception) { Log.e("QSActivity", "Failed to set volume", e) }
-                    },
-                    initialFraction = animatedVolumeFraction,
-                    onDragStateChange = { dragging -> isDraggingVolume = dragging },
-                    baseSliderHeight = 400.dp,
-                    baseSliderWidth = 145.dp,
-                    baseCornerRadius = 48.dp,
-                    maxStretchFactor = 1.15f,
-                    minCompressionFactor = 0.875f,
-                    stretchSensitivity = 0.3f,
-                    compressionSensitivity = 0.3f,
-                    cornerRadiusChangeFactor = -0.5f,
-                    directionalStretchRatio = 0.75f,
-                    modifier = Modifier
-                        .width(145.dp)
-                        .padding(vertical = 8.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 72.dp)
-                    .animateContentSize(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessMedium
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Crossfade(
-                    targetState = isNoiseControlExpanded,
-                    animationSpec = tween(durationMillis = 300),
-                    label = "NoiseControlCrossfade"
-                ) { expanded ->
-                    if (expanded) {
-                        ControlCenterNoiseControlSegmentedButton(
-                            availableModes = availableModes,
-                            selectedMode = currentAncMode,
-                            onModeSelected = { newMode ->
-                                service.aacpManager.sendControlCommand(
-                                    identifier = AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE.value,
-                                    value = newMode.ordinal + 1
-                                )
-                                currentAncMode = newMode
-                            },
-                            modifier = Modifier.fillMaxWidth(0.8f)
-                        )
-                    } else {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(0.85f),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.Top
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(200)) + scaleIn(tween(250), initialScale = 0.92f),
+                    ) {
+                        Column(
+                            Modifier
+                                .padding(horizontal = 24.dp)
+                                .widthIn(max = 420.dp)
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(28.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                // swallow taps on the dialog itself
+                                .clickable(remember { MutableInteractionSource() }, null) {}
+                                .padding(top = 24.dp, bottom = 18.dp, start = 24.dp, end = 24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            val noiseControlButtonBrush = if (currentAncMode == NoiseControlMode.ADAPTIVE) {
-                                AdaptiveRainbowBrush
-                            } else {
-                                null
-                            }
-
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center,
-                                modifier = Modifier.weight(1f)
+                            Icon(
+                                painterResource(R.drawable.ic_w_earbuds), null,
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Text(
+                                stringResource(R.string.ui_qs_title),
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(top = 14.dp)
+                            )
+                            Text(
+                                stringResource(R.string.ui_qs_subtitle),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 4.dp, bottom = 20.dp)
+                            )
+                            QsDevices()
+                            Row(
+                                Modifier.fillMaxWidth().padding(top = 20.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(IconAreaSize)
-                                        .clip(CircleShape)
-                                        .background(
-                                            brush = noiseControlButtonBrush ?:
-                                                Brush.linearGradient(colors = listOf(Color(0xFF0A84FF), Color(0xFF0A84FF)))
-                                        )
-                                        .clickable(
-                                            onClick = { onNoiseControlExpandedChange(true) },
-                                            indication = null,
-                                            interactionSource = remember { MutableInteractionSource() }
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        painter = painterResource(id = getModeIconRes(currentAncMode)),
-                                        contentDescription = getModeLabel(currentAncMode),
-                                        tint = Color.White,
-                                        modifier = Modifier.size(32.dp)
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                Text(
-                                    text = getModeLabel(currentAncMode),
-                                    color = Color.White,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(24.dp))
-
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(IconAreaSize)
-                                        .clip(CircleShape)
-                                        .background(
-                                            Brush.linearGradient(
-                                                colors = listOf(
-                                                    if (isConvAwarenessEnabled) Color(0xFF0A84FF) else Color(0x593C3C3E),
-                                                    if (isConvAwarenessEnabled) Color(0xFF0A84FF) else Color(0x593C3C3E)
-                                                )
-                                            )
-                                        )
-                                        .clickable(
-                                            onClick = {
-                                                val newState = !isConvAwarenessEnabled
-                                                service.aacpManager.sendControlCommand(
-                                                    identifier = AACPManager.Companion.ControlCommandIdentifiers.CONVERSATION_DETECT_CONFIG.value,
-                                                    value = newState
-                                                )
-                                                isConvAwarenessEnabled = newState
-                                            },
-                                            indication = null,
-                                            interactionSource = remember { MutableInteractionSource() }
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.airpods),
-                                        contentDescription = "Conversational Awareness",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(32.dp)
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                Text(
-                                    text = "Conversational\nAwareness",
-                                    color = Color.White,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                    lineHeight = 14.sp
-                                )
+                                OutlinedButton(onClick = {
+                                    startActivity(Intent(this@QuickSettingsDialogActivity, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                                    finish()
+                                }) { Text(stringResource(R.string.ui_qs_settings)) }
+                                Spacer(Modifier.weight(1f))
+                                Button(onClick = { finish() }) { Text(stringResource(R.string.ui_qs_done)) }
                             }
                         }
                     }
                 }
             }
-
-        } else {
-            Spacer(modifier = Modifier.weight(1f))
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text("Loading...", color = textColor)
-            }
-            Spacer(modifier = Modifier.weight(1f))
         }
     }
 }
 
-private fun getModeIconRes(mode: NoiseControlMode): Int {
-    return when (mode) {
-        NoiseControlMode.OFF -> R.drawable.noise_cancellation
-        NoiseControlMode.TRANSPARENCY -> R.drawable.transparency
-        NoiseControlMode.ADAPTIVE -> R.drawable.adaptive
-        NoiseControlMode.NOISE_CANCELLATION -> R.drawable.noise_cancellation
+private class QsDevice(
+    val name: String,
+    val isMax: Boolean,
+    val battery: List<Battery>,
+    val mode: Int,
+    val showOff: Boolean,
+    val showAdaptive: Boolean,
+    val aacp: AACPManager,
+    val isMain: Boolean,
+    val mac: String? = null,
+)
+
+private fun AACPManager.modeAndOff(): Pair<Int?, Boolean> {
+    val list = controlCommandStatusList.toList()
+    val mode = list.find { it.identifier == ControlCommandIdentifiers.LISTENING_MODE }?.value?.firstOrNull()?.toInt()
+    val off = list.find { it.identifier == ControlCommandIdentifiers.ALLOW_OFF_OPTION }?.value?.firstOrNull() == 0x01.toByte()
+    return mode to off
+}
+
+private fun currentDevices(context: android.content.Context): List<QsDevice> {
+    val service = ServiceManager.getService() ?: return emptyList()
+    val devices = mutableListOf<QsDevice>()
+    if (BluetoothConnectionManager.aacpSocket?.isConnected == true) {
+        val model = service.airpodsInstance?.model
+        val (mode, off) = service.aacpManager.modeAndOff()
+        val prefs = context.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
+        devices += QsDevice(
+            name = prefs.getString("name", null) ?: model?.displayName ?: "AirPods",
+            isMax = model is AirPodsMax,
+            battery = service.getBattery(),
+            mode = WidgetRenderer.displayedMode(null, mode ?: service.getANC()),
+            showOff = off || prefs.getBoolean("off_listening_mode", true),
+            showAdaptive = model == null || Capability.ADAPTIVE_AUDIO in model.capabilities,
+            aacp = service.aacpManager,
+            isMain = true,
+        )
+    }
+    CompanionSessions.all().forEach { c ->
+        val model = c.instance?.model
+        val (mode, off) = c.aacpManager.modeAndOff()
+        devices += QsDevice(
+            name = c.name ?: "AirPods",
+            isMax = model is AirPodsMax,
+            battery = c.batteryNotification.getBattery(),
+            mode = WidgetRenderer.displayedMode(c.device.address, mode ?: 2),
+            showOff = off,
+            showAdaptive = model == null || Capability.ADAPTIVE_AUDIO in model.capabilities,
+            aacp = c.aacpManager,
+            isMain = false,
+            mac = c.device.address,
+        )
+    }
+    return devices
+}
+
+@Composable
+private fun QsDevices() {
+    val context = LocalContext.current
+    var tick by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(700)
+            tick++
+        }
+    }
+    val devices = remember(tick) { currentDevices(context) }
+    if (devices.isEmpty()) {
+        Text(
+            stringResource(R.string.widget_not_connected),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(8.dp)
+        )
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        devices.forEach { d ->
+            val level = d.battery
+                .filter { it.status != BatteryStatus.DISCONNECTED && it.component != BatteryComponent.CASE && it.level > 0 }
+                .minOfOrNull { it.level }
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(if (d.isMain) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest)
+                    .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                val fg = if (d.isMain) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Icon(
+                        painterResource(if (d.isMax) R.drawable.ic_w_headphones else R.drawable.ic_w_earbuds), null,
+                        tint = fg, modifier = Modifier.size(24.dp)
+                    )
+                    Column(Modifier.weight(1f)) {
+                        Text(d.name, style = MaterialTheme.typography.titleMedium, color = fg, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            listOfNotNull(
+                                stringResource(if (d.isMain) R.string.ui_qs_active else R.string.ui_qs_connected),
+                                level?.let { stringResource(R.string.ui_qs_battery, it) },
+                                modeLabel(d.mode),
+                            ).joinToString(", "),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = fg.copy(alpha = 0.8f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                ListeningModeGroup(
+                    options = listeningModeOptions(d.showOff, d.showAdaptive),
+                    selected = d.mode,
+                    height = 48.dp,
+                    showLabels = false,
+                    onSelect = { mode ->
+                        if (d.isMain) ServiceManager.getService()?.ancNotification?.setStatus(byteArrayOf(mode.toByte()))
+                        WidgetRenderer.setModeOptimistically(context, d.mac, mode)
+                        Thread {
+                            d.aacp.sendControlCommand(ControlCommandIdentifiers.LISTENING_MODE.value, mode.toByte())
+                        }.start()
+                        tick++
+                    }
+                )
+            }
+        }
     }
 }
 
-private fun getModeLabel(mode: NoiseControlMode): String {
-    return when (mode) {
-        NoiseControlMode.OFF -> "Off"
-        NoiseControlMode.TRANSPARENCY -> "Transparency"
-        NoiseControlMode.ADAPTIVE -> "Adaptive"
-        NoiseControlMode.NOISE_CANCELLATION -> "Noise Cancel"
+@Composable
+private fun modeLabel(mode: Int) = stringResource(
+    when (mode) {
+        1 -> R.string.widget_noise_control_off
+        3 -> R.string.transparency
+        4 -> R.string.adaptive
+        else -> R.string.noise_cancellation
     }
-}
+)

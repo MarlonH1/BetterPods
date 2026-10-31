@@ -75,6 +75,8 @@ android {
             if (releaseSigningAvailable) {
                 signingConfig = signingConfigs.getByName("release")
             }
+            // Separate package so debug and release can be installed side by side.
+            applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
             defaultConfig {
                 minSdk = 33
@@ -117,7 +119,7 @@ android {
         }
     }
 
-    ndkVersion = "30.0.14904198"
+    ndkVersion = "28.0.13004108"
 
     flavorDimensions += "env"
 }

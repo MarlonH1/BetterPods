@@ -96,7 +96,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
             LibrePodsTheme(
-                m3eEnabled = m3eEnabled.value
+                m3eEnabled = true
             ) {
 //                For demo screenshots
 //                val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)

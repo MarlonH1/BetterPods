@@ -26,16 +26,19 @@ class LibrePodsApplication: Application(), XposedServiceHelper.OnServiceListener
         BillingManager.provider.queryPurchases()
         XposedState.isAvailable = XposedServiceHolder.service != null
         XposedState.bluetoothScopeEnabled = XposedServiceHolder.service?.scope?.contains("com.google.android.bluetooth") == true || XposedServiceHolder.service?.scope?.contains("com.android.bluetooth") == true
+        XposedState.systemUiScopeEnabled = XposedServiceHolder.service?.scope?.contains("com.android.systemui") == true
     }
 
     override fun onServiceBind(service: XposedService) {
         XposedServiceHolder.service = service
         XposedState.isAvailable = true
         XposedState.bluetoothScopeEnabled = XposedServiceHolder.service?.scope?.contains("com.google.android.bluetooth") == true || XposedServiceHolder.service?.scope?.contains("com.android.bluetooth") == true
+        XposedState.systemUiScopeEnabled = XposedServiceHolder.service?.scope?.contains("com.android.systemui") == true
     }
 
     override fun onServiceDied(p0: XposedService) {
         XposedServiceHolder.service = null
         XposedState.isAvailable = false
+        XposedState.systemUiScopeEnabled = false
     }
 }

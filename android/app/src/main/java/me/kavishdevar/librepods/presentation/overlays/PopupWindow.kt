@@ -29,6 +29,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.PixelFormat
+import android.media.AudioAttributes
 import android.media.AudioManager
 import android.os.Build
 import android.os.Handler
@@ -139,6 +140,7 @@ class PopupWindow(
 
                 val vid = mView.findViewById<VideoView>(R.id.video)
                 vid.setAudioFocusRequest(AudioManager.AUDIOFOCUS_NONE)
+                vid.setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
                 vid.setVideoPath("android.resource://me.kavishdevar.librepods/" + R.raw.connected)
                 vid.resolveAdjustedSize(vid.width, vid.height)
                 vid.start()

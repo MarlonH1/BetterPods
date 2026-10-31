@@ -61,7 +61,7 @@ private val AppleLightColorScheme = lightColorScheme(
 @Composable
 fun LibrePodsTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    m3eEnabled: Boolean = false,
+    m3eEnabled: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {

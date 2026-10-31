@@ -229,6 +229,19 @@ class AirPodsPro3: AirPodsBase(
     )
 )
 
+class AirPodsMax: AirPodsBase(
+    modelNumber = listOf("A2096", "A3184"),
+    name = "AirPods Max",
+    displayName = "AirPods Max",
+    budsRes = R.drawable.airpods_max,
+    leftBudsRes = R.drawable.airpods_max,
+    rightBudsRes = R.drawable.airpods_max,
+    caseRes = R.drawable.airpods_max,
+    capabilities = setOf(
+        Capability.LISTENING_MODE
+    )
+)
+
 data class AirPodsInstance(
     val name: String,
     val model: AirPodsBase,
@@ -253,7 +266,8 @@ object AirPodsModels {
         AirPodsPro1(),
         AirPodsPro2Lightning(),
         AirPodsPro2USBC(),
-        AirPodsPro3()
+        AirPodsPro3(),
+        AirPodsMax()
     )
 
     fun getModelByModelNumber(modelNumber: String): AirPodsBase? {

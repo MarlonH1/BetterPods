@@ -181,6 +181,9 @@ class AACPManager {
     var controlCommandListeners: MutableMap<ControlCommandIdentifiers, MutableList<ControlCommandListener>> =
         mutableMapOf()
 
+    /** The socket packets go out on; companion devices supply their own. */
+    var socketProvider: () -> android.bluetooth.BluetoothSocket? = { BluetoothConnectionManager.aacpSocket }
+
     var owns: Boolean = false
         private set
 
@@ -214,10 +217,7 @@ class AACPManager {
     private fun setControlCommandStatusValue(
         identifier: ControlCommandIdentifiers, value: ByteArray
     ) {
-        val existingStatus = getControlCommandStatus(identifier)
-        if (existingStatus?.value.contentEquals(value)) {
-            controlCommandStatusList.remove(existingStatus)
-        }
+        controlCommandStatusList.removeAll { it.identifier == identifier }
         controlCommandListeners[identifier]?.forEach { listener ->
             listener.onControlCommandReceived(ControlCommand(identifier.value, value))
         }
@@ -824,36 +824,11 @@ class AACPManager {
     fun createMediaInformationNewDevicePacket(
         selfMacAddress: String,
         targetMacAddress: String
-    ): ByteArray {
-        val opcode = byteArrayOf(Opcodes.SMART_ROUTING, 0x00)
-        val buffer = ByteBuffer.allocate(116)
-        buffer.put(
-            targetMacAddress.split(":").map { it.toInt(16).toByte() }.toByteArray().reversedArray()
-        )
-        buffer.put(byteArrayOf(0x6C, 0x00))
-        buffer.put(byteArrayOf(0x01, 0xE5.toByte(), 0x4A))
-        buffer.put("playingApp".toByteArray())
-        buffer.put(0x42)
-        buffer.put("NA".toByteArray())
-        buffer.put(0x52)
-        buffer.put("hostStreamingState".toByteArray())
-        buffer.put(0x42)
-        buffer.put("NO".toByteArray())
-        buffer.put(0x49)
-        buffer.put("btAddress".toByteArray())
-        buffer.put(0x51)
-        buffer.put(selfMacAddress.toByteArray())
-        buffer.put(0x46)
-        buffer.put("btName".toByteArray())
-        buffer.put(0x47)
-        buffer.put("Android".toByteArray())
-        buffer.put(0x58)
-        buffer.put("otherDevice".toByteArray())
-        buffer.put("AudioCategory".toByteArray())
-        buffer.put(byteArrayOf(0x30, 0x64))
+    ): ByteArray = createMediaInformationPacket(selfMacAddress, targetMacAddress, false)
 
-        return opcode + buffer.array()
-    }
+    private fun otherDeviceMac(selfMacAddress: String): String? =
+        audioSource?.mac?.takeIf { it != selfMacAddress && connectedDevices.any { d -> d.mac == it } }
+            ?: connectedDevices.find { it.mac != selfMacAddress }?.mac
 
     fun sendHijackRequest(selfMacAddress: String): Boolean {
         if (selfMacAddress.length != 17 || !selfMacAddress.matches(Regex("([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}"))) {
@@ -861,42 +836,21 @@ class AACPManager {
             Log.w(TAG, "Invalid MAC address format, got: selfMacAddress=$selfMacAddress")
             return false
         }
-        var success = false
-        for (connectedDevice in connectedDevices) {
-            if (connectedDevice.mac != selfMacAddress) {
-                Log.d(TAG, "Sending Hijack Request packet to ${connectedDevice.mac}")
-                success = sendDataPacket(createHijackRequestPacket(connectedDevice.mac)) || success
-            }
-        }
-        return success
+        val targetMac = otherDeviceMac(selfMacAddress) ?: return false
+        Log.d(TAG, "Sending Hijack Request packet to $targetMac")
+        return sendDataPacket(createHijackRequestPacket(targetMac))
     }
 
-    fun createHijackRequestPacket(targetMacAddress: String): ByteArray {
-        val opcode = byteArrayOf(Opcodes.SMART_ROUTING, 0x00)
-        val buffer = ByteBuffer.allocate(106)
-        buffer.put(
-            targetMacAddress.split(":").map { it.toInt(16).toByte() }.toByteArray().reversedArray()
+    fun createHijackRequestPacket(targetMacAddress: String): ByteArray =
+        createSmartRoutingPacket(
+            targetMacAddress, Opack.dictionary(
+                "localscore" to Opack.integer(301),
+                "reason" to Opack.string("Hijackv2"),
+                "audioRoutingScore" to Opack.integer(301),
+                "audioRoutingSetOwnershipToFalse" to Opack.boolean(true),
+                "remotescore" to Opack.integer(100)
+            )
         )
-        buffer.put(byteArrayOf(0x62, 0x00))
-        buffer.put(byteArrayOf(0x01, 0xE5.toByte()))
-        buffer.put(0x4A)
-        buffer.put("localscore".toByteArray())
-        buffer.put(byteArrayOf(0x30, 0x64))
-        buffer.put(0x46)
-        buffer.put("reason".toByteArray())
-        buffer.put(0x48)
-        buffer.put("Hijackv2".toByteArray())
-        buffer.put(0x51)
-        buffer.put("audioRoutingScore".toByteArray())
-        buffer.put(byteArrayOf(0x31, 0x2D, 0x01, 0x5F))
-        buffer.put("audioRoutingSetOwnershipToFalse".toByteArray())
-        buffer.put(0x01)
-        buffer.put(0x4B)
-        buffer.put("remotescore".toByteArray())
-        buffer.put(0xA5.toByte())
-
-        return opcode + buffer.array()
-    }
 
     fun sendMediaInformataion(selfMacAddress: String, streamingState: Boolean = false): Boolean {
         if (selfMacAddress.length != 17 || !selfMacAddress.matches(Regex("([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}"))) {
@@ -905,7 +859,7 @@ class AACPManager {
             return false
         }
         Log.d(TAG, "SELFMAC: $selfMacAddress")
-        val targetMac = connectedDevices.find { it.mac != selfMacAddress }?.mac
+        val targetMac = otherDeviceMac(selfMacAddress)
         if (targetMac == null) {
             Log.w(TAG, "Cannot send Media Information packet: No connected device found")
             return false
@@ -920,40 +874,15 @@ class AACPManager {
 
     fun createMediaInformationPacket(
         selfMacAddress: String, targetMacAddress: String, streamingState: Boolean = true
-    ): ByteArray {
-        val opcode = byteArrayOf(Opcodes.SMART_ROUTING, 0x00)
-        val buffer = ByteBuffer.allocate(138)
-        buffer.put(
-            targetMacAddress.split(":").map { it.toInt(16).toByte() }.toByteArray().reversedArray()
+    ): ByteArray = createSmartRoutingPacket(
+        targetMacAddress, Opack.dictionary(
+            "playingApp" to Opack.string(if (streamingState) "com.google.ios.youtube" else "Unknown"),
+            "hostStreamingState" to Opack.string(if (streamingState) "YES" else "NO"),
+            "btAddress" to Opack.string(selfMacAddress),
+            "btName" to Opack.string("Android"),
+            "otherDeviceAudioCategory" to Opack.integer(if (streamingState) 301 else 100)
         )
-        buffer.put(
-            byteArrayOf(
-                0x82.toByte(), // related to the length
-                0x00
-            )
-        )
-        buffer.put(byteArrayOf(0x01, 0xE5.toByte(), 0x4A)) // unknown, constant
-        buffer.put("PlayingApp".toByteArray())
-        buffer.put(byteArrayOf(0x56)) // 'V', seems like an identifier or a separator
-        buffer.put("com.google.ios.youtube".toByteArray()) // package name, hardcoding for now, aforementioned reason
-        buffer.put(byteArrayOf(0x52)) // 'R'
-        buffer.put("HostStreamingState".toByteArray())
-        buffer.put(byteArrayOf(0x42)) // 'B'
-        buffer.put((if (streamingState) "YES" else "NO").toByteArray()) // streaming state
-        buffer.put(0x49) // 'I'
-        buffer.put("btAddress".toByteArray()) // self MAC
-        buffer.put(0x51) // 'Q'
-        buffer.put(selfMacAddress.toByteArray()) // self MAC
-        buffer.put("btName".toByteArray()) // self name
-        buffer.put(0x47) // 'D'
-        buffer.put("Android".toByteArray()) // if set to iPad, shows "Moved to iPad", but most likely we're running on a phone. setting to anything else of the same length will show iPhone instead.
-        buffer.put(0x58) // 'X'
-        buffer.put("otherDevice".toByteArray())
-        buffer.put("AudioCategory".toByteArray())
-        buffer.put(byteArrayOf(0x31, 0x2D, 0x01))
-
-        return opcode + buffer.array()
-    }
+    )
 
     fun sendSmartRoutingShowUI(selfMacAddress: String): Boolean {
         if (selfMacAddress.length != 17 || !selfMacAddress.matches(Regex("([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}"))) {
@@ -962,7 +891,7 @@ class AACPManager {
             return false
         }
 
-        val targetMac = connectedDevices.find { it.mac != selfMacAddress }?.mac
+        val targetMac = otherDeviceMac(selfMacAddress)
         if (targetMac == null) {
             Log.w(TAG, "Cannot send Smart Routing Show UI packet: No connected device found")
             return false
@@ -971,33 +900,17 @@ class AACPManager {
         return sendDataPacket(createSmartRoutingShowUIPacket(targetMac))
     }
 
-    fun createSmartRoutingShowUIPacket(targetMacAddress: String): ByteArray {
-        val opcode = byteArrayOf(Opcodes.SMART_ROUTING, 0x00)
-        val buffer = ByteBuffer.allocate(134)
-        buffer.put(
-            targetMacAddress.split(":").map { it.toInt(16).toByte() }.toByteArray().reversedArray()
+    fun createSmartRoutingShowUIPacket(targetMacAddress: String): ByteArray =
+        createSmartRoutingPacket(
+            targetMacAddress, Opack.dictionary(
+                "SmartRoutingKeyShowNearbyUI" to Opack.boolean(true),
+                "localscore" to Opack.integer(301),
+                "reason" to Opack.string("Hijackv2"),
+                "audioRoutingScore" to Opack.integer(301),
+                "audioRoutingSetOwnershipToFalse" to Opack.boolean(true),
+                "remotescore" to Opack.integer(100)
+            )
         )
-        buffer.put(byteArrayOf(0x7E, 0x00))
-        buffer.put(byteArrayOf(0x01, 0xE6.toByte(), 0x5B))
-        buffer.put("SmartRoutingKeyShowNearbyUI".toByteArray())
-        buffer.put(0x01) // separator?
-        buffer.put(0x4A)
-        buffer.put("localscore".toByteArray())
-        buffer.put(0x31, 0x2D)
-        buffer.put(0x01)
-        buffer.put(0x46)
-        buffer.put("reasonHhijackv2".toByteArray())
-        buffer.put(0x51.toByte())
-        buffer.put("audioRoutingScore".toByteArray())
-        buffer.put(0xA2.toByte())
-        buffer.put(0x5F)
-        buffer.put("audioRoutingSetOwnershipToFalse".toByteArray())
-        buffer.put(0x01)
-        buffer.put(0x4B)
-        buffer.put("remotescore".toByteArray())
-        buffer.put(0xA2.toByte())
-        return opcode + buffer.array()
-    }
 
     fun sendHijackReversed(selfMacAddress: String): Boolean {
         var success = false
@@ -1010,27 +923,14 @@ class AACPManager {
         return success
     }
 
-    fun createHijackReversedPacket(targetMacAddress: String): ByteArray {
-        val opcode = byteArrayOf(Opcodes.SMART_ROUTING, 0x00)
-        val buffer = ByteBuffer.allocate(97)
-        buffer.put(
-            targetMacAddress.split(":").map { it.toInt(16).toByte() }.toByteArray().reversedArray()
+    fun createHijackReversedPacket(targetMacAddress: String): ByteArray =
+        createSmartRoutingPacket(
+            targetMacAddress, Opack.dictionary(
+                "audioRoutingSetOwnershipToFalse" to Opack.boolean(true),
+                "audioRoutingShowReverseUI" to Opack.boolean(true),
+                "reason" to Opack.string("ReverseBannerTapped")
+            )
         )
-        buffer.put(byteArrayOf(0x59, 0x00))
-        buffer.put(byteArrayOf(0x01, 0xE3.toByte()))
-        buffer.put(0x5F)
-        buffer.put("audioRoutingSetOwnershipToFalse".toByteArray())
-        buffer.put(0x01)
-        buffer.put(0x59)
-        buffer.put("audioRoutingShowReverseUI".toByteArray())
-        buffer.put(0x01)
-        buffer.put(0x46)
-        buffer.put("reason".toByteArray())
-        buffer.put(0x53)
-        buffer.put("ReverseBannerTapped".toByteArray())
-
-        return opcode + buffer.array()
-    }
 
 
     fun sendAddTiPiDevice(selfMacAddress: String, targetMacAddress: String): Boolean {
@@ -1049,30 +949,41 @@ class AACPManager {
         return sendDataPacket(createAddTiPiDevicePacket(selfMacAddress, targetMacAddress))
     }
 
-    fun createAddTiPiDevicePacket(selfMacAddress: String, targetMacAddress: String): ByteArray {
-        val opcode = byteArrayOf(Opcodes.SMART_ROUTING, 0x00)
-        val buffer = ByteBuffer.allocate(90)
-        buffer.put(
-            targetMacAddress.split(":").map { it.toInt(16).toByte() }.toByteArray().reversedArray()
+    fun createAddTiPiDevicePacket(selfMacAddress: String, targetMacAddress: String): ByteArray =
+        createSmartRoutingPacket(
+            targetMacAddress, Opack.dictionary(
+                "idleTime" to Opack.integer(0),
+                "newTipi" to Opack.boolean(true),
+                "btAddress" to Opack.string(selfMacAddress),
+                "btName" to Opack.string("Android"),
+                "nearbyAudioScore" to Opack.integer(6)
+            )
         )
-        buffer.put(byteArrayOf(0x52, 0x00))
-        buffer.put(byteArrayOf(0x01, 0xE5.toByte()))
-        buffer.put(0x48) // 'H'
-        buffer.put("idleTime".toByteArray())
-        buffer.put(byteArrayOf(0x08, 0x47))
-        buffer.put("newTipi".toByteArray())
-        buffer.put(byteArrayOf(0x01, 0x49))
-        buffer.put("btAddress".toByteArray())
-        buffer.put(0x51)
-        buffer.put(selfMacAddress.toByteArray())
-        buffer.put(0x46)
-        buffer.put("btName".toByteArray())
-        buffer.put(0x47)
-        buffer.put("Android".toByteArray())
-        buffer.put(0x50)
-        buffer.put("nearbyAudioScore".toByteArray())
-        buffer.put(byteArrayOf(0x0E))
-        return opcode + buffer.array()
+
+    private fun createSmartRoutingPacket(targetMacAddress: String, body: ByteArray): ByteArray {
+        val target = targetMacAddress.split(":").map { it.toInt(16).toByte() }.reversed().toByteArray()
+        val length = body.size + 1
+        return byteArrayOf(Opcodes.SMART_ROUTING, 0x00) + target +
+            byteArrayOf((length and 0xFF).toByte(), (length shr 8).toByte(), 0x01) + body
+    }
+
+    private object Opack {
+        fun string(value: String): ByteArray {
+            val bytes = value.toByteArray()
+            return if (bytes.size <= 32) byteArrayOf((0x40 + bytes.size).toByte()) + bytes
+            else byteArrayOf(0x61, bytes.size.toByte()) + bytes
+        }
+
+        fun integer(value: Int): ByteArray = when (value) {
+            in 0..39 -> byteArrayOf((0x08 + value).toByte())
+            in -128..127 -> byteArrayOf(0x30, value.toByte())
+            else -> byteArrayOf(0x31, (value and 0xFF).toByte(), (value shr 8 and 0xFF).toByte())
+        }
+
+        fun boolean(value: Boolean): ByteArray = byteArrayOf(if (value) 0x01 else 0x02)
+
+        fun dictionary(vararg entries: Pair<String, ByteArray>): ByteArray =
+            entries.fold(byteArrayOf((0xE0 + entries.size).toByte())) { acc, (key, value) -> acc + string(key) + value }
     }
 
     data class ControlCommand(
@@ -1159,7 +1070,7 @@ class AACPManager {
                 )
             }
 
-            val socket = BluetoothConnectionManager.aacpSocket ?: return false
+            val socket = socketProvider() ?: return false
 
             if (socket.isConnected) {
                 socket.outputStream?.write(packet)

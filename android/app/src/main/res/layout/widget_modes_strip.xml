@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 4x1 listening mode strip with battery label. Mode buttons are hidden, not greyed, while disconnected. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/w_bg_pill"
+    android:clipToOutline="true"
+    android:padding="8dp"
+    android:theme="@style/Theme.LibrePods.AppWidgetContainer">
+
+    <LinearLayout
+        android:id="@+id/w_connected"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal">
+        <TextView
+            android:id="@+id/w_strip_battery"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:drawablePadding="6dp"
+            android:drawableTint="@color/widget_primary"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="10dp"
+            android:textColor="@color/widget_on_surface"
+            android:textSize="14sp" />
+            <ImageView
+                android:id="@+id/w_mode_off"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                
+                android:background="@drawable/w_strip_off"
+                android:contentDescription="@string/off"
+                android:scaleType="center"
+                android:src="@drawable/ic_w_noise_control_off"
+                android:tint="@color/widget_on_surface_variant" />
+            <ImageView
+                android:id="@+id/w_mode_transparency"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/w_strip_off"
+                android:contentDescription="@string/transparency"
+                android:scaleType="center"
+                android:src="@drawable/ic_w_hearing"
+                android:tint="@color/widget_on_surface_variant" />
+            <ImageView
+                android:id="@+id/w_mode_adaptive"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/w_strip_off"
+                android:contentDescription="@string/adaptive"
+                android:scaleType="center"
+                android:src="@drawable/ic_w_auto_awesome"
+                android:tint="@color/widget_on_surface_variant" />
+            <ImageView
+                android:id="@+id/w_mode_anc"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/w_strip_off"
+                android:contentDescription="@string/noise_cancellation"
+                android:scaleType="center"
+                android:src="@drawable/ic_w_noise_control_on"
+                android:tint="@color/widget_on_surface_variant" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/w_disconnected"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="14dp"
+        android:visibility="gone">
+        <ImageView
+            android:id="@+id/w_rest_glyph"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_w_earbuds"
+            android:tint="@color/widget_on_surface_variant" />
+        <TextView
+            android:id="@+id/w_strip_disconnected_label"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/widget_on_surface_variant"
+            android:textSize="14sp" />
+        <ImageView
+            android:id="@+id/w_connect_button"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="4dp"
+            android:background="@drawable/w_circle_secondary"
+            android:contentDescription="@string/widget_connect"
+            android:padding="10dp"
+            android:src="@drawable/ic_w_bluetooth_fill"
+            android:tint="@color/widget_on_secondary_container" />
+    </LinearLayout>
+
+</FrameLayout>

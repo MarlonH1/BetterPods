@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2x2 listening mode grid. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/w_bg"
+    android:clipToOutline="true"
+    android:padding="10dp"
+    android:theme="@style/Theme.LibrePods.AppWidgetContainer">
+
+    <LinearLayout
+        android:id="@+id/w_connected"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+            <ImageView
+                android:id="@+id/w_mode_off"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                
+                android:background="@drawable/w_mode_off"
+                android:contentDescription="@string/off"
+                android:scaleType="center"
+                android:src="@drawable/ic_w_noise_control_off"
+                android:tint="@color/widget_on_surface_variant" />
+            <ImageView
+                android:id="@+id/w_mode_transparency"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/w_mode_off"
+                android:contentDescription="@string/transparency"
+                android:scaleType="center"
+                android:src="@drawable/ic_w_hearing"
+                android:tint="@color/widget_on_surface_variant" />
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginTop="6dp"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+            <ImageView
+                android:id="@+id/w_mode_adaptive"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                
+                android:background="@drawable/w_mode_off"
+                android:contentDescription="@string/adaptive"
+                android:scaleType="center"
+                android:src="@drawable/ic_w_auto_awesome"
+                android:tint="@color/widget_on_surface_variant" />
+            <ImageView
+                android:id="@+id/w_mode_anc"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/w_mode_off"
+                android:contentDescription="@string/noise_cancellation"
+                android:scaleType="center"
+                android:src="@drawable/ic_w_noise_control_on"
+                android:tint="@color/widget_on_surface_variant" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/w_disconnected"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:visibility="gone">
+        <FrameLayout
+            android:layout_width="84dp"
+            android:layout_height="84dp"
+            android:background="@drawable/w_ring_rest">
+            <ImageView
+                android:id="@+id/w_rest_glyph"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:layout_gravity="center"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_w_earbuds"
+                android:tint="@color/widget_on_surface_variant" />
+        </FrameLayout>
+        <TextView
+            android:id="@+id/w_disconnected_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="1"
+            android:textColor="@color/widget_on_surface"
+            android:textSize="13sp" />
+        <TextView
+            android:id="@+id/w_disconnected_sub"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:text="@string/widget_not_connected"
+            android:textColor="@color/widget_on_surface_variant"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+</FrameLayout>

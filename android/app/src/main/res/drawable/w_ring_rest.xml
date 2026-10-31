@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The battery ring at rest: an empty track, same size as the live ring. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <stroke android:width="6dp" android:color="@color/widget_surface_highest" />
+</shape>

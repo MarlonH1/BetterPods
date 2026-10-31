@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Expanded shade card (LSPosed): hero header, wavy battery lines, listening mode buttons. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@android:color/transparent"
+    android:orientation="vertical"
+    android:paddingHorizontal="14dp"
+    android:paddingTop="14dp"
+    android:paddingBottom="12dp"
+    tools:ignore="ContentDescription">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+        <include layout="@layout/notif_card_header_tile" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/nc_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:alpha="0.8"
+                android:maxLines="1"
+                android:textColor="@color/widget_on_surface"
+                android:textSize="12sp" />
+            <TextView
+                android:id="@+id/nc_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:textColor="@color/widget_on_surface"
+                android:textSize="15sp" />
+        </LinearLayout>
+    </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:orientation="horizontal">
+        <LinearLayout
+            android:id="@+id/nc_part0"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="bottom"
+                android:orientation="horizontal">
+                <TextView
+                    android:id="@+id/nc_part0_level"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-medium"
+                    android:includeFontPadding="false"
+                    android:letterSpacing="-0.03"
+                    android:textColor="@color/widget_on_surface"
+                    android:textSize="20sp" />
+                <TextView
+                    android:id="@+id/nc_part0_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:alpha="0.8"
+                    android:maxLines="1"
+                    android:textColor="@color/widget_on_surface"
+                    android:textSize="11sp" />
+            </LinearLayout>
+            <ImageView
+                android:id="@+id/nc_part0_wave"
+                android:layout_width="match_parent"
+                android:layout_height="12dp"
+                android:layout_marginTop="2dp"
+                android:scaleType="fitXY" />
+        </LinearLayout>
+        <LinearLayout
+            android:id="@+id/nc_part1"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="12dp">
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="bottom"
+                android:orientation="horizontal">
+                <TextView
+                    android:id="@+id/nc_part1_level"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-medium"
+                    android:includeFontPadding="false"
+                    android:letterSpacing="-0.03"
+                    android:textColor="@color/widget_on_surface"
+                    android:textSize="20sp" />
+                <TextView
+                    android:id="@+id/nc_part1_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:alpha="0.8"
+                    android:maxLines="1"
+                    android:textColor="@color/widget_on_surface"
+                    android:textSize="11sp" />
+            </LinearLayout>
+            <ImageView
+                android:id="@+id/nc_part1_wave"
+                android:layout_width="match_parent"
+                android:layout_height="12dp"
+                android:layout_marginTop="2dp"
+                android:scaleType="fitXY" />
+        </LinearLayout>
+        <LinearLayout
+            android:id="@+id/nc_part2"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="12dp">
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="bottom"
+                android:orientation="horizontal">
+                <TextView
+                    android:id="@+id/nc_part2_level"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-medium"
+                    android:includeFontPadding="false"
+                    android:letterSpacing="-0.03"
+                    android:textColor="@color/widget_on_surface"
+                    android:textSize="20sp" />
+                <TextView
+                    android:id="@+id/nc_part2_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:alpha="0.8"
+                    android:maxLines="1"
+                    android:textColor="@color/widget_on_surface"
+                    android:textSize="11sp" />
+            </LinearLayout>
+            <ImageView
+                android:id="@+id/nc_part2_wave"
+                android:layout_width="match_parent"
+                android:layout_height="12dp"
+                android:layout_marginTop="2dp"
+                android:scaleType="fitXY" />
+        </LinearLayout>
+    </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:orientation="horizontal">
+        <ImageView
+            android:id="@+id/nc_mode0"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:scaleType="center" />
+        <ImageView
+            android:id="@+id/nc_mode1"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:layout_marginStart="6dp"
+            android:scaleType="center" />
+        <ImageView
+            android:id="@+id/nc_mode2"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:layout_marginStart="6dp"
+            android:scaleType="center" />
+        <ImageView
+            android:id="@+id/nc_mode3"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:layout_marginStart="6dp"
+            android:scaleType="center" />
+    </LinearLayout>
+</LinearLayout>
