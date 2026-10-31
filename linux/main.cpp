@@ -13,6 +13,9 @@
 #include <QElapsedTimer>
 #include <QQueue>
 #include <QProcess>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QRegularExpression>
 #include <QTranslator>
 #include <QLibraryInfo>
@@ -45,6 +48,7 @@ class AirPodsTrayApp : public QObject {
     Q_PROPERTY(AutoStartManager *autoStartManager READ autoStartManager CONSTANT)
     Q_PROPERTY(bool notificationsEnabled READ notificationsEnabled WRITE setNotificationsEnabled NOTIFY notificationsEnabledChanged)
     Q_PROPERTY(int retryAttempts READ retryAttempts WRITE setRetryAttempts NOTIFY retryAttemptsChanged)
+    Q_PROPERTY(QString fallbackSink READ fallbackSink WRITE setFallbackSink NOTIFY fallbackSinkChanged)
     Q_PROPERTY(bool hideOnStart READ hideOnStart CONSTANT)
     Q_PROPERTY(DeviceInfo *deviceInfo READ deviceInfo CONSTANT)
     Q_PROPERTY(QString phoneMacStatus READ phoneMacStatus NOTIFY phoneMacStatusChanged)
@@ -147,6 +151,30 @@ public:
     bool notificationsEnabled() const { return trayManager->notificationsEnabled(); }
     void setNotificationsEnabled(bool enabled) { trayManager->setNotificationsEnabled(enabled); }
     int retryAttempts() const { return m_retryAttempts; }
+    QString fallbackSink() const { return m_settings->value("audio/fallbackSink").toString(); }
+
+    void setFallbackSink(const QString &sink)
+    {
+        if (sink == fallbackSink())
+            return;
+        m_settings->setValue("audio/fallbackSink", sink);
+        emit fallbackSinkChanged();
+    }
+
+    Q_INVOKABLE QVariantList availableSinks() const
+    {
+        QProcess process;
+        process.start("pactl", {"--format=json", "list", "sinks"});
+        process.waitForFinished();
+        QVariantList sinks;
+        for (const QJsonValue &sink : QJsonDocument::fromJson(process.readAllStandardOutput()).array())
+        {
+            const QString name = sink["name"].toString();
+            if (!name.startsWith("bluez_output."))
+                sinks.append(QVariantMap{{"name", name}, {"description", sink["description"].toString()}});
+        }
+        return sinks;
+    }
     bool hideOnStart() const { return m_hideOnStart; }
     DeviceInfo *deviceInfo() const { return m_deviceInfo; }
     QString phoneMacStatus() const { return m_phoneMacStatus; }
@@ -805,6 +833,15 @@ private slots:
         else if (data.startsWith(AirPodsPackets::SmartRouting::AUDIO_SOURCE_HEADER))
         {
             m_audioSource = AirPodsPackets::SmartRouting::parseAudioSource(data);
+            if (m_audioSource)
+            {
+                const bool local = m_audioSource->mac == QBluetoothLocalDevice().address().toString();
+                const bool active = m_audioSource->type != AirPodsPackets::SmartRouting::AUDIO_SOURCE_NONE;
+                if (local && active)
+                    m_hadAudio = true;
+                else if (!local && active && std::exchange(m_hadAudio, false))
+                    releaseAudio();
+            }
             if (!m_takeoverTarget.isEmpty() && m_audioSource && (m_audioSource->mac != m_takeoverTarget || m_audioSource->type == AirPodsPackets::SmartRouting::AUDIO_SOURCE_NONE))
             {
                 m_takeoverTarget.clear();
@@ -956,6 +993,11 @@ public:
     void handleMediaStateChange(MediaController::MediaState state) {
         if (state == MediaController::MediaState::Playing) {
             LOG_INFO("Media started playing, sending disconnect request to Android and taking over audio");
+            if (socket && socket->isOpen() && !m_deviceInfo->getEarDetection()->oneOrMorePodsInEar())
+            {
+                LOG_INFO("AirPods not in ear, playing on current output without taking over");
+                return;
+            }
             sendDisconnectRequestToAndroid();
             if (socket && socket->isOpen())
                 takeOverAudio();
@@ -982,6 +1024,7 @@ public:
             return;
 
         LOG_INFO("Taking over audio from " << m_audioSource->mac);
+        QProcess::startDetached("pactl", {"set-default-sink", "bluez_output." + m_deviceInfo->bluetoothAddress().replace(":", "_") + ".1"});
         m_lastTakeover.start();
         m_takeoverTarget = m_audioSource->mac;
         writePacketToSocket(AirPodsPackets::OwnsConnection::ENABLED, "Owns connection packet written: ");
@@ -992,8 +1035,15 @@ public:
 
     void releaseAudio()
     {
+        if (!mediaController->isActiveOutputDeviceAirPods())
+        {
+            LOG_INFO("Lost ownership, but AirPods are not the active output, keep playing");
+            return;
+        }
         LOG_INFO("Lost ownership, pausing playback");
         mediaController->pause();
+        if (!fallbackSink().isEmpty())
+            QProcess::startDetached("pactl", {"set-default-sink", fallbackSink()});
     }
 
     bool isPlayingLocally() const
@@ -1081,6 +1131,7 @@ signals:
     void crossDeviceEnabledChanged(bool enabled);
     void notificationsEnabledChanged(bool enabled);
     void retryAttemptsChanged(int attempts);
+    void fallbackSinkChanged();
     void oneBudANCModeChanged(bool enabled);
     void phoneMacStatusChanged();
     void hearingAidEnabledChanged(bool enabled);
@@ -1102,6 +1153,7 @@ private:
     SystemSleepMonitor *m_systemSleepMonitor = nullptr;
     QString m_phoneMacStatus;
     bool m_takeoverOnConnect = false;
+    bool m_hadAudio = false;
     QString m_takeoverTarget;
     QQueue<QByteArray> m_txQueue;
     QTimer m_txTimer;

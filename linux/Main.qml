@@ -221,6 +221,31 @@ ApplicationWindow {
                         }
                     }
 
+                    Column {
+                        spacing: 5
+                        width: parent.width - 40
+
+                        Label {
+                            text: qsTr("Audio Output When Another Device Takes Over:")
+                        }
+
+                        ComboBox {
+                            id: fallbackSinkBox
+                            width: parent.width
+                            textRole: "description"
+                            valueRole: "name"
+
+                            function reload() {
+                                model = [{ name: "", description: qsTr("None") }].concat(airPodsTrayApp.availableSinks())
+                                currentIndex = Math.max(0, indexOfValue(airPodsTrayApp.fallbackSink))
+                            }
+
+                            Component.onCompleted: reload()
+                            popup.onAboutToShow: reload()
+                            onActivated: airPodsTrayApp.fallbackSink = currentValue
+                        }
+                    }
+
                     Switch {
                         text: qsTr("Cross-Device Connectivity with Android")
                         checked: airPodsTrayApp.crossDeviceEnabled

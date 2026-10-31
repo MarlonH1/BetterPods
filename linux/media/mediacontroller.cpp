@@ -1,3 +1,4 @@
+#include <QTimer>
 #include "mediacontroller.h"
 #include "logger.h"
 #include "eardetection.hpp"
@@ -201,8 +202,10 @@ void MediaController::restartA2dpStream() {
   if (profile.isEmpty())
     return;
   LOG_INFO("Restarting A2DP stream with profile: " << profile);
+  pause();
   m_pulseAudio->setCardProfile(m_deviceOutputName, "off");
   m_pulseAudio->setCardProfile(m_deviceOutputName, profile);
+  QTimer::singleShot(300, this, &MediaController::play);
 }
 
 void MediaController::activateA2dpProfile() {
