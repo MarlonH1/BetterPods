@@ -407,6 +407,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         initializeConfig()
 
         aacpManager = AACPManager()
+        // like an iPhone: other devices say "Moved to <this phone's name>"
+        aacpManager.selfName = android.provider.Settings.Global.getString(contentResolver, android.provider.Settings.Global.DEVICE_NAME)
+            ?.takeIf { it.isNotBlank() } ?: android.os.Build.MODEL
         initializeAACPManagerCallback()
 
         attManager = ATTManagerv2()
@@ -1019,7 +1022,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 // handling reverse is a problem because we'd have to disconnect the audio, but there's no option connect audio again natively, so notification would have to be changed. I wish there was a way to just "change the audio output device".
                 // (20 minutes later) i've done it nonetheless :]
                 val senderName =
-                    aacpManager.connectedDevices.find { it.mac == sender }?.type ?: "Other device"
+                    aacpManager.connectedDevices.find { it.mac == sender }?.let { it.name ?: it.type } ?: "Other device"
                 Log.d(
                     TAG,
                     "other device has hijacked the connection, reasonReverseTapped: $reasonReverseTapped"
@@ -1068,7 +1071,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
             override fun onShowNearbyUI(sender: String) {
                 val senderName =
-                    aacpManager.connectedDevices.find { it.mac == sender }?.type ?: "Other device"
+                    aacpManager.connectedDevices.find { it.mac == sender }?.let { it.name ?: it.type } ?: "Other device"
                 showIsland(
                     this@AirPodsService,
                     (batteryNotification.getBattery()
@@ -2758,8 +2761,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     return
                 }
 
+                // like an iPhone: starting playback here takes the AirPods even while the
+                // other device plays music (it gets the "moved to" banner); calls are handled above
                 val otherSourceState = when (aacpManager.audioSource?.type) {
-                    AACPManager.Companion.AudioSourceType.MEDIA -> config.takeoverWhenMusic
+                    AACPManager.Companion.AudioSourceType.MEDIA -> config.takeoverWhenMusic || takingOverFor == "music"
                     else -> config.takeoverWhenIdle
                 }
                 val phoneState = when (takingOverFor) {

@@ -159,7 +159,10 @@ class AACPManager {
 
         data class ConnectedDevice(
             val mac: String, val info1: Byte, val info2: Byte, var type: String?
-        )
+        ) {
+            /** The name the device announced (btName), shown as "Moved to <name>". */
+            var name: String? = null
+        }
 
         data class AirPodsInformation(
             val name: String,
@@ -532,6 +535,7 @@ class AACPManager {
                 //     connectedDevices.find { it.mac == sender }?.type = name
                 //     Log.d(TAG, "Device $sender is named $name")
                 // } // doesn't work, it's different for Mac and iPad. just hardcoding for now
+                btName(packet)?.let { name -> connectedDevices.find { it.mac == sender }?.name = name }
                 if ("iPad" in packetString) {
                     connectedDevices.find { it.mac == sender }?.type = "iPad"
                 } else if ("Mac" in packetString) {
@@ -830,6 +834,24 @@ class AACPManager {
         audioSource?.mac?.takeIf { it != selfMacAddress && connectedDevices.any { d -> d.mac == it } }
             ?: connectedDevices.find { it.mac != selfMacAddress }?.mac
 
+    /** This phone's name as other devices show it ("Moved to <name>"). */
+    var selfName: String = "Android"
+
+    /** The `btName` string from a smart-routing message's OPACK body. */
+    private fun btName(packet: ByteArray): String? {
+        val key = byteArrayOf(0x46) + "btName".toByteArray()
+        val at = (0..packet.size - key.size).firstOrNull { i -> key.indices.all { packet[i + it] == key[it] } }
+            ?.plus(key.size) ?: return null
+        val tag = packet.getOrNull(at)?.toInt()?.and(0xFF) ?: return null
+        val (len, start) = when (tag) {
+            in 0x40..0x60 -> (tag - 0x40) to at + 1
+            0x61 -> ((packet.getOrNull(at + 1)?.toInt() ?: return null) and 0xFF) to at + 2
+            else -> return null
+        }
+        if (start + len > packet.size) return null
+        return packet.decodeToString(start, start + len).trim().ifEmpty { null }
+    }
+
     fun sendHijackRequest(selfMacAddress: String): Boolean {
         if (selfMacAddress.length != 17 || !selfMacAddress.matches(Regex("([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}"))) {
             // throw IllegalArgumentException("MAC address must be 6 bytes")
@@ -879,7 +901,8 @@ class AACPManager {
             "playingApp" to Opack.string(if (streamingState) "com.google.ios.youtube" else "Unknown"),
             "hostStreamingState" to Opack.string(if (streamingState) "YES" else "NO"),
             "btAddress" to Opack.string(selfMacAddress),
-            "btName" to Opack.string("Android"),
+            "btName" to Opack.string(selfName),
+            "btPlatform" to Opack.string("Android"),
             "otherDeviceAudioCategory" to Opack.integer(if (streamingState) 301 else 100)
         )
     )
@@ -955,7 +978,8 @@ class AACPManager {
                 "idleTime" to Opack.integer(0),
                 "newTipi" to Opack.boolean(true),
                 "btAddress" to Opack.string(selfMacAddress),
-                "btName" to Opack.string("Android"),
+                "btName" to Opack.string(selfName),
+                "btPlatform" to Opack.string("Android"),
                 "nearbyAudioScore" to Opack.integer(6)
             )
         )
@@ -1160,7 +1184,7 @@ class AACPManager {
             val info1 = data[offset + 6]
             val info2 = data[offset + 7]
             val existingDevice = devices.find { it.mac == mac }
-            devices.add(ConnectedDevice(mac, info1, info2, existingDevice?.type))
+            devices.add(ConnectedDevice(mac, info1, info2, existingDevice?.type).also { it.name = existingDevice?.name })
             offset += 8
         }
 

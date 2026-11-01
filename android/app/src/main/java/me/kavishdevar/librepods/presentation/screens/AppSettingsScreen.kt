@@ -81,7 +81,7 @@ fun AppSettingsScreen(
         viewModel.setTakeoverWhenIdle(on)
         viewModel.setTakeoverWhenRingingCall(on)
         viewModel.setTakeoverWhenMediaStart(on)
-        viewModel.setTakeoverWhenMusic(false)
+        viewModel.setTakeoverWhenMusic(on)
     }
     fun open(url: String) = context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 
