@@ -9,6 +9,9 @@ pub struct BudBattery {
     pub charging: bool,
 }
 
+/// `audio_source` kind of a device in a call (0 idle, 2 media).
+pub const AUDIO_SOURCE_CALL: u8 = 1;
+
 /// Everything the UI and CLI show about the connected AirPods.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DeviceState {
@@ -129,6 +132,17 @@ impl DeviceState {
     /// Whether another device is playing through the AirPods right now.
     pub fn other_device_playing(&self, local: Option<&Mac>) -> bool {
         self.audio_source.is_some_and(|(mac, kind)| kind != 0 && Some(&mac) != local)
+    }
+
+    /// Whether playback starting here should take the AirPods, like on a Mac: yes unless they
+    /// already play from here or another device is in a call. An idle or music-playing other
+    /// device gives them up.
+    pub fn should_take_for_playback(&self, local: Option<&Mac>) -> bool {
+        match self.audio_source {
+            Some((mac, kind)) if Some(&mac) == local => kind == 0,
+            Some((_, AUDIO_SOURCE_CALL)) => false,
+            _ => true,
+        }
     }
 
     /// "iPhone", "Mac", … for `mac`, or a generic name.

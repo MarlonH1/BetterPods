@@ -193,8 +193,12 @@ impl Service {
             let s = self.state.borrow().clone();
             if s.ready {
                 // Not worn: keep playing on whatever output is active.
-                if s.any_in_ear() && s.other_device_playing(s.local.as_ref()) {
+                if !s.any_in_ear() {
+                    log::debug!("playback started, AirPods not worn");
+                } else if s.should_take_for_playback(s.local.as_ref()) {
                     self.take_over(&s).await;
+                } else {
+                    log::info!("playback started, not taking the AirPods: {:?}", s.audio_source);
                 }
             } else if !s.connected {
                 let Some(d) = Platform::known_devices().await.into_iter().next() else { continue };
@@ -209,7 +213,7 @@ impl Service {
     }
 
     async fn take_over(&self, s: &DeviceState) {
-        if !s.other_device_playing(s.local.as_ref()) || recent(&self.took_at, 10) {
+        if !s.should_take_for_playback(s.local.as_ref()) || recent(&self.took_at, 10) {
             return;
         }
         let from = s.audio_source.and_then(|(m, _)| s.device_name(&m)).unwrap_or_else(|| "anderes Gerät".into());

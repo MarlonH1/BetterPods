@@ -4,4 +4,6 @@
     <string name="show_bottom_sheet_popup_description">Zeigt das Popup im iOS-Stil unten an, wenn AirPods sich verbinden.</string>
     <string name="show_island_popup">Dynamic Island Popup</string>
     <string name="show_island_popup_description">Zeigt das Popup im Dynamic-Island-Stil oben für Verbindungs- und Übergabe-Ereignisse.</string>
+    <string name="ble_scan">Per Bluetooth LE nach AirPods suchen</string>
+    <string name="ble_scan_description">Liest Akku und Ohr-Status aus den Broadcasts der AirPods, solange sie nicht mit diesem Handy verbunden sind. Kostet zusätzlich Akku, und viele AirPods senden nichts, während sie mit einem anderen Gerät verbunden sind.</string>
 </resources>

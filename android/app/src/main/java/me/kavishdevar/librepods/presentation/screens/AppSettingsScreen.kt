@@ -160,6 +160,10 @@ fun AppSettingsScreen(
                         Toast.makeText(context, restartBluetoothText, Toast.LENGTH_SHORT).show()
                         viewModel.setVendorIdHook(enabled)
                     }) } else null,
+                { m -> SwitchRow(m, stringResource(R.string.ble_scan),
+                    stringResource(R.string.ble_scan_description),
+                    checked = state.bleScan,
+                    onCheckedChange = viewModel::setBleScan) },
             )
         )
 

@@ -30,6 +30,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.appwidget.AppWidgetManager
+import android.bluetooth.BluetoothA2dp
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothHeadset
@@ -174,6 +175,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     // while a hijack is in flight the AirPods still report the old source; don't release until it settles
     private var takeoverInFlightUntil = 0L
     private var lastAudioRouteDeactivation = 0L
+    private var lastSelfAudioDisconnect = 0L
+    // like an iPhone: after a manual disconnect nothing connects them again until the user does
+    private var userDisconnectedAirPods = false
     // set when a takeover needed a fresh connection; finished once the AirPods report the audio source
     private var takeOverOnConnect: String? = null
     private val speakerOverrideKey = "audio_route_speaker_override"
@@ -193,6 +197,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         var conversationalAwarenessVolume: Int = 43,
         var qsClickBehavior: String = "cycle",
         var bleOnlyMode: Boolean = false,
+        var bleScan: Boolean = false,
 
         // AirPods state-based takeover
         var takeoverWhenDisconnected: Boolean = true,
@@ -705,6 +710,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         return
                     }
                     device = detected
+                    userDisconnectedAirPods = false
 
                     if (config.deviceName == "AirPods" && device?.name != null) {
                         config.deviceName = device?.name ?: "AirPods"
@@ -857,14 +863,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     /**
-     * The AirPods' state only has to be overheard over BLE while there is no AACP link: with one,
-     * battery, ear state and the audio source all arrive over it - even while another device
-     * plays. BLE-only mode has no AACP, so it keeps listening.
+     * Optional (off by default): overhearing the AirPods' BLE broadcasts. Only useful while there
+     * is no AACP link: with one, battery, ear state and the audio source all arrive over it - even
+     * while another device plays. BLE-only mode has no AACP, so it keeps listening.
      */
     fun refreshBleScan() {
         if (!::bleManager.isInitialized) return
         bleManager.setBackgroundScanning(
-            config.bleOnlyMode || BluetoothConnectionManager.aacpSocket?.isConnected != true
+            config.bleScan &&
+                (config.bleOnlyMode || BluetoothConnectionManager.aacpSocket?.isConnected != true)
         )
     }
 
@@ -1227,7 +1234,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 }
                 takeOverOnConnect?.let {
                     takeOverOnConnect = null
-                    takeOver(it)
+                    // the ear state may arrive right after the audio source
+                    if (aacpEarStatusKnown) takeOver(it)
+                    else Handler(Looper.getMainLooper()).postDelayed({ takeOver(it) }, 700)
                 }
             }
 
@@ -1516,6 +1525,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             disconnectWhenNotWearing = sharedPreferences.getBoolean(
                 "disconnect_when_not_wearing", false
             ),
+            bleScan = sharedPreferences.getBoolean("ble_scan", false),
             conversationalAwarenessVolume = sharedPreferences.getInt(
                 "conversational_awareness_volume", 43
             ),
@@ -1631,6 +1641,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             "head_gestures" -> config.headGestures = preferences.getBoolean(key, true)
             "disconnect_when_not_wearing" -> config.disconnectWhenNotWearing =
                 preferences.getBoolean(key, false)
+
+            "ble_scan" -> {
+                config.bleScan = preferences.getBoolean(key, false)
+                refreshBleScan()
+            }
 
             "conversational_awareness_volume" -> config.conversationalAwarenessVolume =
                 preferences.getInt(key, 43)
@@ -2661,6 +2676,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     // existed, so look again now.
                     if (bluetoothDevice.uuids?.contains(uuid) == true || looksLikeAirPods(bluetoothDevice)) detected()
                     else bluetoothDevice.fetchUuidsWithSdp()
+                } else if ((action == BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED ||
+                        action == BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED) &&
+                    intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_DISCONNECTED
+                ) {
+                    ServiceManager.getService()?.onAudioProfileDisconnected(bluetoothDevice)
                 } else if (BluetoothDevice.ACTION_UUID == action) {
                     // Only for a device that is connected right now; this broadcast also fires
                     // for paired devices that are out of range.
@@ -2712,7 +2732,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     ) {
         // without AACP the decision rests on BLE; the background scan listens rarely, so listen
         // closely for a moment first
-        if (takingOverFor != "reverse" && !bleRefreshed &&
+        if (config.bleScan && takingOverFor != "reverse" && !bleRefreshed &&
             BluetoothConnectionManager.aacpSocket?.isConnected != true &&
             !bleManager.hasFreshStatus(BLE_FRESH_MS)
         ) {
@@ -2720,6 +2740,24 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             bleManager.burstScan(BLE_BURST_TIMEOUT_MS) {
                 takeOver(takingOverFor, manualTakeOverAfterReversed, startHeadTrackingAgain, bleRefreshed = true)
             }
+            return
+        }
+        // without AACP and without BLE state nothing says whether they are worn or busy elsewhere:
+        // open AACP first and decide with its data (takeOverOnConnect runs this again)
+        if (takingOverFor != "reverse" && !config.bleOnlyMode &&
+            BluetoothConnectionManager.aacpSocket?.isConnected != true &&
+            !bleManager.hasFreshStatus(BLE_FRESH_MS)
+        ) {
+            if (userDisconnectedAirPods) {
+                Log.d(TAG, "Not taking over, the user disconnected the AirPods")
+                return
+            }
+            val adapter = getSystemService(BluetoothManager::class.java).adapter
+            val target = adapter.bondedDevices.find { it.address == macAddress } ?: return
+            Log.d(TAG, "No AACP link, connecting to decide about the takeover")
+            takeOverOnConnect = takingOverFor
+            // takeOver is called from main-thread callbacks; the socket connect blocks up to 5s
+            CoroutineScope(Dispatchers.IO).launch { connectToSocket(adapter, target) }
             return
         }
         if (takingOverFor == "reverse") {
@@ -3208,12 +3246,64 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 //        CrossDevice.isAvailable = true
     }
 
+    /**
+     * The user disconnected the AirPods in the system settings: Android only drops A2DP and HFP,
+     * but our AACP and ATT channels keep the link up, and the AirPods reconnect over it a while
+     * later. Like on an iPhone, a manual disconnect has to end the whole connection.
+     */
+    fun onAudioProfileDisconnected(disconnected: BluetoothDevice) {
+        if (disconnected.address != device?.address) return
+        if (BluetoothConnectionManager.aacpSocket?.isConnected != true) return
+        // let the other profile follow, then look at both
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (disconnected.address != device?.address) return@postDelayed
+            if (BluetoothConnectionManager.aacpSocket?.isConnected != true) return@postDelayed
+            // we drop them ourselves to hand the AirPods to another device (no root)
+            if (SystemClock.elapsedRealtime() - lastSelfAudioDisconnect < 10_000) return@postDelayed
+            whenAudioProfilesDisconnected(disconnected) {
+                Log.d(TAG, "Audio profiles disconnected by the user, closing AACP too")
+                userDisconnectedAirPods = true
+                disconnectAirPods()
+            }
+        }, 1500)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun whenAudioProfilesDisconnected(target: BluetoothDevice, action: () -> Unit) {
+        val adapter = getSystemService(BluetoothManager::class.java).adapter ?: return
+        val profiles = listOf(BluetoothProfile.A2DP, BluetoothProfile.HEADSET)
+        val states = mutableMapOf<Int, Int>()
+        for (profile in profiles) {
+            adapter.getProfileProxy(this, object : BluetoothProfile.ServiceListener {
+                override fun onServiceConnected(p: Int, proxy: BluetoothProfile) {
+                    states[p] = try {
+                        proxy.getConnectionState(target)
+                    } catch (e: Exception) {
+                        BluetoothProfile.STATE_CONNECTED // unknown: keep the link
+                    }
+                    adapter.closeProfileProxy(p, proxy)
+                    if (states.size == profiles.size &&
+                        states.values.all { it == BluetoothProfile.STATE_DISCONNECTED }
+                    ) action()
+                }
+
+                override fun onServiceDisconnected(p: Int) {}
+            }, profile)
+        }
+    }
+
     fun disconnectAirPods() {
         if (BluetoothConnectionManager.aacpSocket == null) return
         try {
             BluetoothConnectionManager.aacpSocket?.close()
         } catch(e: Exception) {
             Log.e(TAG, "error closing aacp socket ${e.message}")
+        }
+        // an open ATT channel alone would keep the link up
+        try {
+            BluetoothConnectionManager.attSocket?.close()
+        } catch(e: Exception) {
+            Log.e(TAG, "error closing att socket ${e.message}")
         }
 //        isConnectedLocally = false
         aacpManager.disconnected()
@@ -3435,6 +3525,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     fun disconnectAudio(context: Context, device: BluetoothDevice?) {
+        lastSelfAudioDisconnect = SystemClock.elapsedRealtime()
         val bluetoothAdapter = context.getSystemService(BluetoothManager::class.java).adapter
         bluetoothAdapter?.getProfileProxy(context, object : BluetoothProfile.ServiceListener {
             override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {

@@ -31,6 +31,7 @@ data class AppSettingsUiState(
     val cameraPackageValue: String = "",
     val cameraPackageError: String? = null,
     val vendorIdHook: Boolean = false,
+    val bleScan: Boolean = false,
     val connectionSuccessful: Boolean = false,
     val showBottomSheetPopup: Boolean = true,
     val showIslandPopup: Boolean = true,
@@ -80,6 +81,7 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
                 conversationalAwarenessVolume = sharedPreferences.getInt("conversational_awareness_volume", 43).toFloat(),
                 cameraPackageValue = sharedPreferences.getString("custom_camera_package", "") ?: "",
                 vendorIdHook = xposedRemotePref.getBoolean("vendor_id_hook", false),
+                bleScan = sharedPreferences.getBoolean("ble_scan", false),
                 connectionSuccessful = sharedPreferences.getBoolean("connection_successful", false),
                 showBottomSheetPopup = sharedPreferences.getBoolean("show_bottom_sheet_popup", true),
                 showIslandPopup = sharedPreferences.getBoolean("show_island_popup", true),
@@ -101,6 +103,11 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
     fun setRelativeConversationalAwarenessVolumeEnabled(enabled: Boolean) {
         sharedPreferences.edit { putBoolean("relative_conversational_awareness_volume", enabled) }
         _uiState.update { it.copy(relativeConversationalAwarenessVolumeEnabled = enabled) }
+    }
+
+    fun setBleScan(enabled: Boolean) {
+        sharedPreferences.edit { putBoolean("ble_scan", enabled) }
+        _uiState.update { it.copy(bleScan = enabled) }
     }
 
     fun setDisconnectWhenNotWearing(enabled: Boolean) {

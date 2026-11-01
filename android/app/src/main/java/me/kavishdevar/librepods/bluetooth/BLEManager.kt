@@ -27,12 +27,16 @@ import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import androidx.core.content.ContextCompat
 import me.kavishdevar.librepods.utils.BluetoothCryptography
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
@@ -142,6 +146,25 @@ class BLEManager(private val context: Context) {
     private var filterStartedAt = 0L
     private var runningConfig: Pair<Int, String?>? = null
 
+    // switching Bluetooth off ends every scan without a callback; start again once it is back
+    private val adapterStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)
+            if (state != BluetoothAdapter.STATE_ON && state != BluetoothAdapter.STATE_OFF) return
+            Log.d(TAG, "Bluetooth ${if (state == BluetoothAdapter.STATE_ON) "on" else "off"}")
+            mScanCallback = null
+            runningConfig = null
+            applyScan()
+        }
+    }
+
+    init {
+        ContextCompat.registerReceiver(
+            context, adapterStateReceiver, IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+    }
+
     fun setAirPodsStatusListener(listener: AirPodsStatusListener) {
         airPodsStatusListener = listener
     }
@@ -177,7 +200,12 @@ class BLEManager(private val context: Context) {
         return System.currentTimeMillis() - status.lastSeen <= maxAgeMs
     }
 
+    /** Stops for good, when the service goes away. */
     fun stopScanning() {
+        try {
+            context.unregisterReceiver(adapterStateReceiver)
+        } catch (_: IllegalArgumentException) {
+        }
         cleanupHandler.post {
             backgroundEnabled = false
             cleanupHandler.removeCallbacks(burstTimeout)
