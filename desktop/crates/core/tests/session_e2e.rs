@@ -3,8 +3,8 @@
 use std::time::Duration;
 
 use aacp::{ControlId, EarState, ListeningMode};
-use droidpods_core::fake::{ear_packet, mem_pair, run_fake, FakeConfig, FakeEvent};
-use droidpods_core::{run_session, BudBattery, Command, DeviceState, Peers, SessionEnd};
+use betterpods_core::fake::{ear_packet, mem_pair, run_fake, FakeConfig, FakeEvent};
+use betterpods_core::{run_session, BudBattery, Command, DeviceState, Peers, SessionEnd};
 use tokio::sync::{mpsc, watch};
 use tokio::time::timeout;
 

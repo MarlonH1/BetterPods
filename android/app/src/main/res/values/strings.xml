@@ -1,5 +1,5 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
-    <string name="app_name" translatable="false">DroidPods</string>
+    <string name="app_name" translatable="false">BetterPods</string>
     <string name="app_description">Liberate your AirPods from Apple\'s ecosystem.</string>
     <string name="app_widget_description">See your AirPods battery status right from your home screen!</string>
     <string name="accessibility">Accessibility</string>
@@ -186,7 +186,7 @@
     <string name="custom_camera_package">Custom Camera appid</string>
     <string name="custom_camera_package_set_success">Custom camera appid set successfully</string>
     <string name="app_listener_service_label">Camera listener</string>
-    <string name="app_listener_service_description">Listener service for DroidPods to detect when the camera is active to activate camera control on AirPods.</string>
+    <string name="app_listener_service_description">Listener service for BetterPods to detect when the camera is active to activate camera control on AirPods.</string>
     <string name="open_source_licenses">Open Source Licenses</string>
     <string name="hearing_test">Update Hearing Test</string>
     <string name="update_hearing_test">Update Hearing Test Result</string>
@@ -228,7 +228,7 @@
     <string name="automatic_connection_description">Enable and customize automatic connection to AirPods.</string>
     <string name="customizations_description">Get access to app customizations, including phone battery in widget, conversational awareness volume, and many more upcoming customization features.</string>
     <string name="support_the_development">Support the development</string>
-    <string name="support_development_description">DroidPods is developed by a single developer. Upgrading helps keep the app alive.</string>
+    <string name="support_development_description">BetterPods is developed by a single developer. Upgrading helps keep the app alive.</string>
     <string name="feature_availability_disclaimer">Feature availability depends on your AirPods model and firmware version.</string>
     <string name="contact">Contact</string>
     <string name="email">E-Mail</string>
@@ -275,14 +275,14 @@
     <string name="describe_your_issue">Describe your issue</string>
     <string name="optimized_charging">Optimized Charge Limit</string>
     <string name="optimized_charging_description">AirPods can learn from your daily usage and determine when to charge to an optmized limit and when to allow or full charge. This limit adapts to your daily usage and preserves your battery lifespan over time.\nThis setting may not affect unsupported AirPods, or AirPods on an older firmware version.</string>
-    <string name="enable_app_in_xposed_or_update_device">Update your device or enable DroidPods in Xposed and reopen the app to proceed.</string>
+    <string name="enable_app_in_xposed_or_update_device">Update your device or enable BetterPods in Xposed and reopen the app to proceed.</string>
     <string name="play_foss_premium_banner">Due to an error in billing, premium access will expire in %1$d days. If you already upgraded the app, please click on this message to email billing@kavish.xyz to restore or verify access. Apologies for the inconvenience.</string>
     <string name="custom">Custom</string>
     <string name="recommended">Recommended</string>
     <string name="appearance">Appearance</string>
     <string name="use_material3e">Use Material 3 Expressive</string>
     <string name="material3e">Material 3 Expressive</string>
-    <string name="update_m3e_description">DroidPods now supports a whole new look based on Material 3 Expressive including updated typography and adaptive color schemes.\nYou can switch back to the Apple look from the app\'s settings.</string>
+    <string name="update_m3e_description">BetterPods now supports a whole new look based on Material 3 Expressive including updated typography and adaptive color schemes.\nYou can switch back to the Apple look from the app\'s settings.</string>
     <string name="update_equalizer_description">Available only on the latest AirPods Beta firmware. An Apple device running OS version 27 is required to install the beta firmware.</string>
     <string name="what_s_new">What\'s New</string>
     <string name="reconnecting">Reconnecting</string>
@@ -379,13 +379,13 @@
     <string name="widget_mode_grid_description">Switch listening mode</string>
     <string name="widget_connecting">Connecting…</string>
     <string name="widget_no_airpods">No AirPods yet</string>
-    <string name="widget_no_airpods_hint">Set them up in DroidPods</string>
+    <string name="widget_no_airpods_hint">Set them up in BetterPods</string>
     <string name="widget_set_up">Set up</string>
     <string name="ui_also_connected">Also connected</string>
     <string name="ui_main_device_title">Main device</string>
     <string name="ui_main_device_desc">Ear detection, gestures, conversation awareness and all settings work on the main device. It switches automatically to the pair that\'s playing.</string>
     <string name="ui_make_main_device">Make main device</string>
-    <string name="ui_open_app">Open DroidPods</string>
+    <string name="ui_open_app">Open BetterPods</string>
     <string name="widget_pick_device">Show which AirPods?</string>
     <string name="widget_device_automatic">Automatic</string>
     <string name="widget_device_automatic_desc">The pair you\'re currently using</string>
@@ -411,7 +411,7 @@
     <string name="setup_privacy_promise">Everything stays on your phone. No account, no tracking.</string>
     <string name="setup_get_started">Get started</string>
     <string name="setup_permissions_title">A few permissions</string>
-    <string name="setup_permissions_subtitle">Only Nearby devices is needed. The rest makes DroidPods feel built in.</string>
+    <string name="setup_permissions_subtitle">Only Nearby devices is needed. The rest makes BetterPods feel built in.</string>
     <string name="setup_perm_nearby">Nearby devices</string>
     <string name="setup_perm_nearby_desc">Talk to your AirPods</string>
     <string name="setup_perm_notifications">Notifications</string>
@@ -449,12 +449,12 @@
     <string name="setup_add_widget_desc">Battery or listening modes on your home screen</string>
     <string name="setup_qs_tile">Quick Settings tile</string>
     <string name="setup_qs_tile_desc">Switch modes from the shade</string>
-    <string name="setup_open_app">Open DroidPods</string>
+    <string name="setup_open_app">Open BetterPods</string>
     <string name="settings_notifications">Notifications</string>
     <string name="settings_help">Help</string>
     <string name="settings_troubleshooting_desc">Collect logs and fix connection problems</string>
     <string name="settings_about">About</string>
     <string name="settings_based_on">Based on LibrePods</string>
-    <string name="settings_based_on_desc">DroidPods is free software under the GPLv3, built on the LibrePods project</string>
+    <string name="settings_based_on_desc">BetterPods is free software under the GPLv3, built on the LibrePods project</string>
     <string name="settings_device_line">%1$s · Android %2$s</string>
 </resources>

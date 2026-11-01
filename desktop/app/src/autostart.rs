@@ -2,7 +2,7 @@
 
 #[cfg(target_os = "linux")]
 fn entry() -> Option<std::path::PathBuf> {
-    Some(dirs::config_dir()?.join("autostart").join("droidpods.desktop"))
+    Some(dirs::config_dir()?.join("autostart").join("betterpods.desktop"))
 }
 
 #[cfg(target_os = "linux")]
@@ -14,9 +14,9 @@ pub fn enabled() -> bool {
 pub fn set(on: bool) {
     let Some(path) = entry() else { return };
     let result = if on {
-        let exe = std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_else(|_| "droidpods".into());
+        let exe = std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_else(|_| "betterpods".into());
         let text = format!(
-            "[Desktop Entry]\nType=Application\nName=DroidPods\nComment=AirPods companion\nExec={exe} daemon --hidden\nIcon=audio-headphones\nX-GNOME-Autostart-enabled=true\n"
+            "[Desktop Entry]\nType=Application\nName=BetterPods\nComment=AirPods companion\nExec={exe} daemon --hidden\nIcon=audio-headphones\nX-GNOME-Autostart-enabled=true\n"
         );
         std::fs::create_dir_all(path.parent().expect("has parent")).and_then(|_| std::fs::write(&path, text))
     } else {

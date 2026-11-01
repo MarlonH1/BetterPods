@@ -1,8 +1,8 @@
-//! Named settings for `droidpods get` / `droidpods set`. Device keys map to AACP
+//! Named settings for `betterpods get` / `betterpods set`. Device keys map to AACP
 //! controls and only appear for models that have them; app keys live in `Settings`.
 
 use aacp::{Capability, ControlId, ListeningMode};
-use droidpods_core::{Command, ConnectPolicy, DeviceState, Settings, TrayBattery};
+use betterpods_core::{Command, ConnectPolicy, DeviceState, Settings, TrayBattery};
 
 pub enum Change {
     Device(Command),
@@ -19,7 +19,7 @@ pub enum KeyError {
 impl std::fmt::Display for KeyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            KeyError::Unknown(k) => write!(f, "unknown setting '{k}' (see: droidpods get)"),
+            KeyError::Unknown(k) => write!(f, "unknown setting '{k}' (see: betterpods get)"),
             KeyError::BadValue { key, expected } => write!(f, "{key} takes {expected}"),
             KeyError::NotConnected => write!(f, "no AirPods connected"),
         }
@@ -192,7 +192,7 @@ pub fn set(state: &DeviceState, settings: &Settings, key: &str, value: &str) -> 
         // Empty or the default name follows the hostname again.
         "device-name" => {
             let v = value.trim();
-            s.device_name = (!v.is_empty() && v != droidpods_core::default_device_name()).then(|| v.to_owned());
+            s.device_name = (!v.is_empty() && v != betterpods_core::default_device_name()).then(|| v.to_owned());
         }
         _ => return set_device(state, key, value).map(Change::Device),
     }

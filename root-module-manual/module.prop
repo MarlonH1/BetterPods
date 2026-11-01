@@ -1,6 +1,6 @@
-id=droidpods
-name=DroidPods
+id=betterpods
+name=BetterPods
 version=v0.2.6
 versionCode=46
 author=marlon (based on LibrePods by @kavishdevar)
-description=Installs DroidPods as a system app for granting BLUETOOTH_PRIVILEGED, MODIFY_PHONE_STATE and MODIFY_AUDIO_ROUTING for better integration with Android.
+description=Installs BetterPods as a system app for granting BLUETOOTH_PRIVILEGED, MODIFY_PHONE_STATE and MODIFY_AUDIO_ROUTING for better integration with Android.

@@ -1,7 +1,7 @@
 //! Tray icon (StatusNotifierItem). Clicking it shows or hides the window; the
 //! icon itself shows the battery the way the App page configures it.
 
-use droidpods_core::TrayBattery;
+use betterpods_core::TrayBattery;
 use ksni::{menu::StandardItem, Icon, MenuItem, ToolTip, TrayMethods};
 
 /// Earbuds glyph from the design (`TrayIcons`), 24×24 viewBox.
@@ -43,11 +43,11 @@ impl Tray {
 
 impl ksni::Tray for Tray {
     fn id(&self) -> String {
-        "droidpods".into()
+        "betterpods".into()
     }
 
     fn title(&self) -> String {
-        "DroidPods".into()
+        "BetterPods".into()
     }
 
     fn activate(&mut self, _x: i32, _y: i32) {
@@ -59,7 +59,7 @@ impl ksni::Tray for Tray {
     }
 
     fn tool_tip(&self) -> ToolTip {
-        ToolTip { title: "DroidPods".into(), description: self.view.tooltip.clone(), ..Default::default() }
+        ToolTip { title: "BetterPods".into(), description: self.view.tooltip.clone(), ..Default::default() }
     }
 
     fn menu(&self) -> Vec<MenuItem<Self>> {

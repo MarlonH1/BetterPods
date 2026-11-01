@@ -1,5 +1,5 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
-    <string name="app_name" translatable="false">DroidPods</string>
+    <string name="app_name" translatable="false">BetterPods</string>
     <string name="app_description">Sử dụng AirPods của bạn mà không cần hệ sinh thái của Apple.</string>
     <string name="app_widget_description">Xem trạng thái pin AirPods trên màn hình chính!</string>
     <string name="accessibility">Trợ năng</string>
@@ -181,7 +181,7 @@
     <string name="custom_camera_package">ID ứng dụng máy ảnh tùy chỉnh</string>
     <string name="custom_camera_package_set_success">Đã đặt ID ứng dụng máy ảnh tùy chỉnh thành công</string>
     <string name="app_listener_service_label">Trình lắng nghe máy ảnh</string>
-    <string name="app_listener_service_description">Dịch vụ lắng nghe để DroidPods phát hiện khi máy ảnh đang hoạt động để kích hoạt điều khiển máy ảnh trên AirPods.</string>
+    <string name="app_listener_service_description">Dịch vụ lắng nghe để BetterPods phát hiện khi máy ảnh đang hoạt động để kích hoạt điều khiển máy ảnh trên AirPods.</string>
     <string name="open_source_licenses">Giấy phép mã nguồn mở</string>
     <string name="hearing_test">Cập nhật bài kiểm tra thính lực</string>
     <string name="update_hearing_test">Cập nhật kết quả kiểm tra thính lực</string>

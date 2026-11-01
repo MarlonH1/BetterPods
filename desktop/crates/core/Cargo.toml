@@ -1,6 +1,6 @@
 [package]
-name = "droidpods-core"
-description = "DroidPods device session and state, independent of platform and UI"
+name = "betterpods-core"
+description = "BetterPods device session and state, independent of platform and UI"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

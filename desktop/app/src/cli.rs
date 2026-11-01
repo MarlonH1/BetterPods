@@ -1,4 +1,4 @@
-//! `droidpods <command>`: a thin client that asks the running app over its socket.
+//! `betterpods <command>`: a thin client that asks the running app over its socket.
 
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
@@ -9,7 +9,7 @@ use clap::{Parser, Subcommand};
 use crate::ipc::{exit, Event, Request, Response, StatusJson};
 
 #[derive(Parser)]
-#[command(name = "droidpods", version, about = "AirPods unter Linux & Windows steuern")]
+#[command(name = "betterpods", version, about = "AirPods unter Linux & Windows steuern")]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Cmd>,
@@ -45,7 +45,7 @@ pub enum Cmd {
     Devices,
     /// Stream events as they happen.
     Watch,
-    /// Open the window (starts DroidPods if needed).
+    /// Open the window (starts BetterPods if needed).
     Open,
     /// Run in the background with the tray icon.
     Daemon {
@@ -62,7 +62,7 @@ pub enum Cmd {
 
 fn request(req: &Request) -> Result<Response, ExitCode> {
     let mut stream = UnixStream::connect(crate::ipc::socket_path()).map_err(|_| {
-        eprintln!("error: DroidPods is not running (start it with: droidpods open)");
+        eprintln!("error: BetterPods is not running (start it with: betterpods open)");
         ExitCode::from(exit::NO_DAEMON as u8)
     })?;
     let mut line = serde_json::to_string(req).expect("request serializes");
@@ -171,7 +171,7 @@ fn run_inner(cli: Cli) -> Result<(), ExitCode> {
         }
         Cmd::Completions { shell } => {
             use clap::CommandFactory;
-            clap_complete::generate(shell, &mut Cli::command(), "droidpods", &mut std::io::stdout());
+            clap_complete::generate(shell, &mut Cli::command(), "betterpods", &mut std::io::stdout());
         }
         Cmd::Open | Cmd::Daemon { .. } => unreachable!("handled in main"),
     }
@@ -221,7 +221,7 @@ fn fill(template: &str, s: &StatusJson) -> String {
 
 fn watch(json: bool) -> Result<(), ExitCode> {
     let mut stream = UnixStream::connect(crate::ipc::socket_path()).map_err(|_| {
-        eprintln!("error: DroidPods is not running (start it with: droidpods open)");
+        eprintln!("error: BetterPods is not running (start it with: betterpods open)");
         ExitCode::from(exit::NO_DAEMON as u8)
     })?;
     let mut line = serde_json::to_string(&Request::Watch).expect("request serializes");

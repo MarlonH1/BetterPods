@@ -1,8 +1,8 @@
-//! DroidPods desktop app.
+//! BetterPods desktop app.
 //!
-//!     droidpods open         show the window (starts the app if needed)
-//!     droidpods daemon       run in the background with the tray icon
-//!     droidpods <command>    control the running app from the shell, see --help
+//!     betterpods open         show the window (starts the app if needed)
+//!     betterpods daemon       run in the background with the tray icon
+//!     betterpods <command>    control the running app from the shell, see --help
 //!
 //! `--demo` runs against virtual AirPods.
 
@@ -32,7 +32,7 @@ fn main() -> ExitCode {
         }
         Some(cli::Cmd::Daemon { hidden }) => {
             if cli::daemon_running() {
-                eprintln!("DroidPods is already running");
+                eprintln!("BetterPods is already running");
                 return ExitCode::SUCCESS;
             }
             run_app(args.demo, !hidden)
@@ -67,7 +67,7 @@ fn run_app(demo: bool, show: bool) -> ExitCode {
     if show {
         ui::show_now();
     }
-    if let Ok(path) = std::env::var("DROIDPODS_SNAPSHOT") {
+    if let Ok(path) = std::env::var("BETTERPODS_SNAPSHOT") {
         // Dev aid: render the window to a PPM file once state has settled, then quit.
         slint::Timer::single_shot(Duration::from_millis(1500), move || {
             ui::snapshot(&path);

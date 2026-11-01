@@ -7,8 +7,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use aacp::{Component, ControlId, EarState, ListeningMode};
-use droidpods_core::ear::{EarAction, EarPolicy};
-use droidpods_core::{BudBattery, Command, ConnectPolicy, DeviceState, Settings};
+use betterpods_core::ear::{EarAction, EarPolicy};
+use betterpods_core::{BudBattery, Command, ConnectPolicy, DeviceState, Settings};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::{broadcast, mpsc, watch};
 
@@ -497,13 +497,13 @@ fn status_json(s: &DeviceState) -> StatusJson {
 }
 
 async fn run_demo(cmd_rx: mpsc::Receiver<Command>, state_tx: watch::Sender<DeviceState>) {
-    use droidpods_core::fake;
+    use betterpods_core::fake;
     let (host, pods) = fake::mem_pair();
     let (_ev_tx, ev_rx) = mpsc::unbounded_channel();
     tokio::spawn(fake::run_fake(pods, fake::FakeConfig::default(), ev_rx, None));
-    droidpods_core::run_session(
+    betterpods_core::run_session(
         host,
-        droidpods_core::Peers {
+        betterpods_core::Peers {
             airpods: "00:00:00:00:00:01".into(),
             local: None,
             name: "Demo".into(),

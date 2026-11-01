@@ -12,7 +12,7 @@ use std::time::Duration;
 
 use bluer::l2cap::{SeqPacket, SocketAddr};
 use bluer::{Address, AddressType, Uuid};
-use droidpods_core::{run_session, Command, DeviceState, Peers, SessionEnd, Transport};
+use betterpods_core::{run_session, Command, DeviceState, Peers, SessionEnd, Transport};
 use tokio::sync::{mpsc, watch};
 
 /// The AACP channel over an L2CAP SEQPACKET socket (message boundaries are kept).

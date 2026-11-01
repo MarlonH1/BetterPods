@@ -6,7 +6,7 @@ use notify_rust::{Notification, Timeout};
 /// button was clicked. Blocks, so call it from a blocking task.
 pub fn show(summary: &str, body: &str, action: Option<&str>) -> bool {
     let mut n = Notification::new();
-    n.appname("DroidPods").summary(summary).body(body).icon("audio-headphones").timeout(Timeout::Default);
+    n.appname("BetterPods").summary(summary).body(body).icon("audio-headphones").timeout(Timeout::Default);
     if let Some(label) = action {
         n.action("act", label);
     }

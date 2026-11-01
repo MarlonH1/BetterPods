@@ -1,5 +1,5 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
-    <string name="app_name" translatable="false">DroidPods</string>
+    <string name="app_name" translatable="false">BetterPods</string>
     <string name="app_description">Libera tus AirPods del ecosistema de Apple.</string>
     <string name="app_widget_description">¡Ve el estado de batería de tus AirPods desde tu pantalla de inicio!</string>
     <string name="accessibility">Accesibilidad</string>
@@ -181,7 +181,7 @@
     <string name="custom_camera_package">Aplicación de cámara personalizada Appid</string>
     <string name="custom_camera_package_set_success">Appid de cámara establecido correctamente</string>
     <string name="app_listener_service_label">Escucha de cámara</string>
-    <string name="app_listener_service_description">Servicio de escucha para DroidPods que detecta cuándo la cámara está activa para activar el control de la cámara en los AirPods.</string>
+    <string name="app_listener_service_description">Servicio de escucha para BetterPods que detecta cuándo la cámara está activa para activar el control de la cámara en los AirPods.</string>
     <string name="open_source_licenses">Licencias de Código Abierto</string>
     <string name="hearing_test">Actualizar Prueba Auditiva</string>
     <string name="update_hearing_test">Actualizar el Resultado de la Prueba Auditiva</string>

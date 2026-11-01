@@ -1,4 +1,4 @@
-//! Device session and state for DroidPods, shared by every platform and the UI.
+//! Device session and state for BetterPods, shared by every platform and the UI.
 
 pub mod ear;
 pub mod fake;

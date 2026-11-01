@@ -22,8 +22,8 @@ pub struct KnownDevice {
 mod linux {
     use std::time::Duration;
 
-    use droidpods_core::{Command, DeviceState, Settings};
-    use droidpods_linux::{audio, media::Media, notify};
+    use betterpods_core::{Command, DeviceState, Settings};
+    use betterpods_linux::{audio, media::Media, notify};
     use tokio::sync::{mpsc, watch};
 
     use super::{KnownDevice, Output};
@@ -44,7 +44,7 @@ mod linux {
             settings: watch::Receiver<Settings>,
         ) {
             let name = move || settings.borrow().device_name();
-            if let Err(e) = droidpods_linux::supervise(cmd, state, Duration::from_secs(3), name).await {
+            if let Err(e) = betterpods_linux::supervise(cmd, state, Duration::from_secs(3), name).await {
                 log::error!("Bluetooth unavailable: {e}");
             }
         }
@@ -112,7 +112,7 @@ mod linux {
 
         pub async fn known_devices() -> Vec<KnownDevice> {
             let Ok(bt) = bluer::Session::new().await else { return Vec::new() };
-            droidpods_linux::paired_airpods(&bt)
+            betterpods_linux::paired_airpods(&bt)
                 .await
                 .unwrap_or_default()
                 .into_iter()
@@ -138,7 +138,7 @@ mod linux {
 
 #[cfg(not(target_os = "linux"))]
 mod other {
-    use droidpods_core::{Command, DeviceState, Settings};
+    use betterpods_core::{Command, DeviceState, Settings};
     use tokio::sync::{mpsc, watch};
 
     use super::{KnownDevice, Output};

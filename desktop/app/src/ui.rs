@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use aacp::{Capability, ControlId, ListeningMode};
-use droidpods_core::{Command, ConnectPolicy, DeviceState, Settings, TrayBattery};
+use betterpods_core::{Command, ConnectPolicy, DeviceState, Settings, TrayBattery};
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 
 use crate::keys::{self, Change};
@@ -93,7 +93,7 @@ impl Host {
         apply_settings(&ui, &self.svc.settings.borrow(), &self.outputs.borrow());
         self.rt.spawn(follow(ui.as_weak(), self.svc.clone()));
         self.rt.spawn(load_known(ui.as_weak()));
-        if let Some(page) = std::env::var("DROIDPODS_PAGE").ok().and_then(|p| p.parse().ok()) {
+        if let Some(page) = std::env::var("BETTERPODS_PAGE").ok().and_then(|p| p.parse().ok()) {
             ui.set_page(page);
         }
         let _ = ui.show();
@@ -222,9 +222,9 @@ fn open_url(url: &str) {
 }
 
 /// Light only when the system explicitly asks for it; otherwise dark.
-/// `DROIDPODS_THEME=light|dark` overrides the system.
+/// `BETTERPODS_THEME=light|dark` overrides the system.
 pub fn system_is_light() -> bool {
-    match std::env::var("DROIDPODS_THEME").as_deref() {
+    match std::env::var("BETTERPODS_THEME").as_deref() {
         Ok("light") => true,
         Ok("dark") => false,
         _ => matches!(dark_light::detect(), Ok(dark_light::Mode::Light)),
@@ -318,7 +318,7 @@ fn apply_state(ui: &AppWindow, s: &DeviceState) {
 
     let mut bats = Vec::new();
     let mut line = Vec::new();
-    let mut push = |kind, label: &str, short: &str, b: Option<droidpods_core::BudBattery>| {
+    let mut push = |kind, label: &str, short: &str, b: Option<betterpods_core::BudBattery>| {
         if let Some(b) = b {
             bats.push(Bat { kind, label: label.into(), level: b.level as i32, charging: b.charging });
             line.push(format!("{short}{}", b.level));
@@ -370,8 +370,8 @@ fn apply_state(ui: &AppWindow, s: &DeviceState) {
     d.set_optimized_charging(flag(ControlId::DynamicEndOfCharge));
 }
 
-/// Dev aid for `DROIDPODS_SNAPSHOT`: write the open window to `path` as PPM.
-/// `DROIDPODS_PAGE` (0–5) picks the page first.
+/// Dev aid for `BETTERPODS_SNAPSHOT`: write the open window to `path` as PPM.
+/// `BETTERPODS_PAGE` (0–5) picks the page first.
 pub fn snapshot(path: &str) {
     HOST.with(|h| {
         let host = h.borrow();

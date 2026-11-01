@@ -10,8 +10,8 @@ repository = "https://github.com/kavishdevar/librepods"
 
 [workspace.dependencies]
 aacp = { path = "crates/aacp" }
-droidpods-core = { path = "crates/core" }
-droidpods-linux = { path = "crates/platform-linux" }
+betterpods-core = { path = "crates/core" }
+betterpods-linux = { path = "crates/platform-linux" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "io-util"] }
 async-trait = "0.1"
 thiserror = "2"

@@ -47,7 +47,7 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.marlon.droidpods"
+        applicationId = "com.marlon.betterpods"
         targetSdk = 37
         versionCode = 65
         versionName = appVersionName

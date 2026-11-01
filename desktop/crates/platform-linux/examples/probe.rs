@@ -1,15 +1,15 @@
 //! Hardware check: list paired AirPods and, if one is connected, open the AACP
 //! channel and print what it reports.
 //!
-//!     cargo run -p droidpods-linux --example probe [seconds] [off|transparency|adaptive|anc]
+//!     cargo run -p betterpods-linux --example probe [seconds] [off|transparency|adaptive|anc]
 //!
 //! With a mode, it switches to it once the session is ready, waits for the
 //! AirPods to confirm, then switches back.
 
 use std::time::Duration;
 
-use droidpods_core::{run_session, Command, DeviceState};
-use droidpods_linux::{paired_airpods, L2capLink};
+use betterpods_core::{run_session, Command, DeviceState};
+use betterpods_linux::{paired_airpods, L2capLink};
 use tokio::sync::{mpsc, watch};
 
 #[tokio::main(flavor = "current_thread")]
@@ -38,7 +38,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (state_tx, mut state_rx) = watch::channel(DeviceState::default());
     let session = tokio::spawn(run_session(
         link,
-        droidpods_core::Peers { airpods: p.address.to_string(), local: None, name: "probe".into(), platform: "Linux" },
+        betterpods_core::Peers { airpods: p.address.to_string(), local: None, name: "probe".into(), platform: "Linux" },
         cmd_rx,
         state_tx,
     ));

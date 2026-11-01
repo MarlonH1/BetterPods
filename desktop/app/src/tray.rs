@@ -6,7 +6,7 @@ use crate::service::{battery_line, Service};
 
 #[cfg(target_os = "linux")]
 pub async fn run(svc: Arc<Service>) {
-    use droidpods_linux::tray::{Tray, TrayView};
+    use betterpods_linux::tray::{Tray, TrayView};
 
     let view = |svc: &Service| {
         let s = svc.state.borrow();

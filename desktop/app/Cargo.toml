@@ -1,13 +1,13 @@
 [package]
-name = "droidpods"
-description = "DroidPods — AirPods companion for Linux and Windows"
+name = "betterpods"
+description = "BetterPods — AirPods companion for Linux and Windows"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
 aacp.workspace = true
-droidpods-core.workspace = true
+betterpods-core.workspace = true
 tokio.workspace = true
 log.workspace = true
 env_logger.workspace = true
@@ -21,7 +21,7 @@ dirs = "6"
 slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "unstable-winit-030"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-droidpods-linux.workspace = true
+betterpods-linux.workspace = true
 bluer = { version = "0.17", features = ["bluetoothd"] }
 
 [build-dependencies]

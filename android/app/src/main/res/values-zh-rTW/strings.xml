@@ -1,5 +1,5 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
-    <string name="app_name" translatable="false">DroidPods</string>
+    <string name="app_name" translatable="false">BetterPods</string>
     <string name="app_description">讓你的 AirPods 擺脫 Apple 生態系統的束縛。</string>
     <string name="app_widget_description">直接從主畫面查看 AirPods 電池狀態！</string>
     <string name="accessibility">輔助使用</string>
@@ -183,7 +183,7 @@
     <string name="custom_camera_package">自訂相機應用程式 ID</string>
     <string name="custom_camera_package_set_success">自訂相機應用程式 ID 設定成功</string>
     <string name="app_listener_service_label">相機監聽器</string>
-    <string name="app_listener_service_description">DroidPods 的監聽器服務，用於偵測相機何時啟用，以啟動 AirPods 上的相機控制。</string>
+    <string name="app_listener_service_description">BetterPods 的監聽器服務，用於偵測相機何時啟用，以啟動 AirPods 上的相機控制。</string>
     <string name="open_source_licenses">開放原始碼授權</string>
     <string name="hearing_test">更新聽力測試</string>
     <string name="update_hearing_test">更新聽力測試結果</string>
@@ -225,7 +225,7 @@
     <string name="automatic_connection_description">啟用並自訂自動連接至 AirPods 的功能。</string>
     <string name="customizations_description">存取應用程式自訂功能，包括小工具中的手機電量、對話感知音量，以及更多即將推出的自訂功能。</string>
     <string name="support_the_development">支援開發</string>
-    <string name="support_development_description">DroidPods 由單一開發者開發。升級有助於維持應用程式的運作。</string>
+    <string name="support_development_description">BetterPods 由單一開發者開發。升級有助於維持應用程式的運作。</string>
     <string name="feature_availability_disclaimer">功能的可用性取決於你的 AirPods 型號與韌體版本。</string>
     <string name="contact">聯絡</string>
     <string name="email">電子郵件</string>

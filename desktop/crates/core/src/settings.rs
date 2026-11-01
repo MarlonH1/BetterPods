@@ -76,7 +76,7 @@ impl Settings {
     }
 
     pub fn path() -> Option<PathBuf> {
-        Some(dirs::config_dir()?.join("droidpods").join("config.toml"))
+        Some(dirs::config_dir()?.join("betterpods").join("config.toml"))
     }
 
     /// Missing or unreadable settings fall back to the defaults.

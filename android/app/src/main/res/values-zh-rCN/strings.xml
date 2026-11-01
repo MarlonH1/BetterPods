@@ -182,7 +182,7 @@
     <string name="custom_camera_package">自定义相机应用 ID</string>
     <string name="custom_camera_package_set_success">自定义相机应用 ID 设置成功</string>
     <string name="app_listener_service_label">相机监听器</string>
-    <string name="app_listener_service_description">DroidPods 的监听服务，用于检测相机何时处于活动状态，以激活 AirPods 上的相机控制。</string>
+    <string name="app_listener_service_description">BetterPods 的监听服务，用于检测相机何时处于活动状态，以激活 AirPods 上的相机控制。</string>
     <string name="open_source_licenses">开源许可证</string>
     <string name="hearing_test">更新听力测试</string>
     <string name="update_hearing_test">更新听力测试结果</string>

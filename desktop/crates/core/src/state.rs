@@ -137,7 +137,7 @@ impl DeviceState {
         self.device_names.get(mac).cloned().or_else(|| self.device_kinds.get(mac).map(|k| k.to_string()))
     }
 
-    /// Lowest bud level, as shown on the tray icon and by `droidpods status --format {min}`.
+    /// Lowest bud level, as shown on the tray icon and by `betterpods status --format {min}`.
     pub fn min_bud_level(&self) -> Option<u8> {
         [self.left, self.right, self.headset].into_iter().flatten().map(|b| b.level).min()
     }

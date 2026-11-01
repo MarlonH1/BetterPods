@@ -1,5 +1,5 @@
 //! Virtual AirPods that speak AACP over an in-memory link. Used by the
-//! end-to-end tests and by `droidpods --demo`.
+//! end-to-end tests and by `betterpods --demo`.
 
 use std::io;
 
