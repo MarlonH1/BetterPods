@@ -64,7 +64,6 @@ fun NavigationRoot(
         Screen.HearingProtection -> stringResource(R.string.hearing_protection)
         is Screen.LongPress -> currentScreen.bud
         Screen.OpenSourceLicenses -> stringResource(R.string.open_source_licenses)
-        Screen.Purchase -> stringResource(R.string.unlock_advanced_features)
         Screen.Rename -> stringResource(R.string.name)
         Screen.TransparencyCustomization -> stringResource(R.string.customize_transparency_mode)
         Screen.Troubleshooting -> stringResource(R.string.troubleshooting)

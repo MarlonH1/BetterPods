@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget picker preview: the live layout filled with sample data. Generated from widget_airpods_large.xml. -->
+<!-- 4x2 AirPods widget: header + battery capsules. Disconnected state swaps in a connect prompt. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/w_bg"
+    android:clipToOutline="true"
+    android:padding="16dp"
+    android:theme="@style/Theme.LibrePods.AppWidgetContainer"
+    tools:ignore="ContentDescription">
+
+    <LinearLayout
+        android:id="@+id/w_connected"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <FrameLayout
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/w_tile_primary_container">
+                <ImageView
+                    android:id="@+id/w_device_image"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_w_earbuds"
+                    android:tint="@color/widget_on_primary_container" />
+            </FrameLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView
+                    android:id="@+id/w_name"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
+                    android:textColor="@color/widget_on_surface"
+                    android:textSize="16sp"
+    android:text="AirPods Pro" />
+                <TextView
+                    android:id="@+id/w_mode_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="@color/widget_on_surface_variant"
+                    android:textSize="13sp"
+    android:text="@string/noise_cancellation" />
+            </LinearLayout>
+
+            <ImageView
+                android:id="@+id/w_mode_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@drawable/w_circle_primary"
+                android:contentDescription="@string/widget_change_mode"
+                android:padding="12dp"
+                android:tint="@color/widget_on_primary"
+    android:src="@drawable/ic_w_noise_control_on_fill" />
+        </LinearLayout>
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:minHeight="8dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:orientation="horizontal">
+
+            <FrameLayout
+                android:id="@+id/w_skeleton"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/w_capsule_track"
+                android:visibility="gone">
+                <ProgressBar
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:indeterminate="true"
+                    android:indeterminateDrawable="@drawable/w_bar_spin" />
+            </FrameLayout>
+
+            <FrameLayout
+                android:id="@+id/w_left"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1">
+                <ProgressBar
+                    android:id="@+id/w_left_progress"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:max="100"
+                    android:progressDrawable="@drawable/w_capsule"
+                    android:progressTint="@color/widget_primary_container"
+    android:progress="80" />
+                <LinearLayout
+                    android:id="@+id/w_left_text_row"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal"
+                    android:weightSum="1.25">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:layout_weight="1"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical">
+                    <TextView
+                        android:id="@+id/w_left_level"
+                        android:maxLines="1"
+                        android:includeFontPadding="false"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:drawablePadding="2dp"
+                        android:drawableTint="@color/widget_tertiary"
+                        android:fontFamily="sans-serif-medium"
+                        android:textColor="@color/widget_on_surface"
+                        android:textSize="20sp"
+    android:text="80%" />
+                    <TextView
+                        android:id="@+id/w_left_label"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/left"
+                        android:textColor="@color/widget_on_surface_variant"
+                        android:textSize="11sp" />
+                </LinearLayout>
+                </LinearLayout>
+            </FrameLayout>
+
+            <FrameLayout
+                android:id="@+id/w_right"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1">
+                <ProgressBar
+                    android:id="@+id/w_right_progress"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:max="100"
+                    android:progressDrawable="@drawable/w_capsule"
+                    android:progressTint="@color/widget_primary_container"
+    android:progress="82" />
+                <LinearLayout
+                    android:id="@+id/w_right_text_row"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal"
+                    android:weightSum="1.2195">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:layout_weight="1"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical">
+                    <TextView
+                        android:id="@+id/w_right_level"
+                        android:maxLines="1"
+                        android:includeFontPadding="false"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:drawablePadding="2dp"
+                        android:drawableTint="@color/widget_tertiary"
+                        android:fontFamily="sans-serif-medium"
+                        android:textColor="@color/widget_on_surface"
+                        android:textSize="20sp"
+    android:text="82%" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/right"
+                        android:textColor="@color/widget_on_surface_variant"
+                        android:textSize="11sp" />
+                </LinearLayout>
+                </LinearLayout>
+            </FrameLayout>
+
+            <FrameLayout
+                android:id="@+id/w_case"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1">
+                <ProgressBar
+                    android:id="@+id/w_case_progress"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:max="100"
+                    android:progressDrawable="@drawable/w_capsule"
+                    android:progressTint="@color/widget_tertiary_container"
+    android:progress="60" />
+                <LinearLayout
+                    android:id="@+id/w_case_text_row"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal"
+                    android:weightSum="1.6667">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:layout_weight="1"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical">
+                    <TextView
+                        android:id="@+id/w_case_level"
+                        android:maxLines="1"
+                        android:includeFontPadding="false"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:drawablePadding="2dp"
+                        android:drawableTint="@color/widget_tertiary"
+                        android:fontFamily="sans-serif-medium"
+                        android:textColor="@color/widget_on_surface"
+                        android:textSize="20sp"
+    android:text="45%" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/case_alt"
+                        android:textColor="@color/widget_on_surface_variant"
+                        android:textSize="11sp" />
+                </LinearLayout>
+                </LinearLayout>
+            </FrameLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/w_disconnected"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal"
+        android:visibility="gone">
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/w_name_disconnected"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:textColor="@color/widget_on_surface"
+                android:textSize="18sp" />
+            <TextView
+                android:id="@+id/w_disconnected_subtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="@string/widget_not_connected"
+                android:textColor="@color/widget_on_surface_variant"
+                android:textSize="13sp" />
+            <Space
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+            <ImageView
+                android:id="@+id/w_connect_button"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/w_circle_secondary"
+                android:contentDescription="@string/widget_connect"
+                android:padding="11dp"
+                android:src="@drawable/ic_w_bluetooth_fill"
+                android:tint="@color/widget_on_secondary_container" />
+        </LinearLayout>
+        <!-- Device glyph resting on an empty ring: calm, not an error. -->
+        <FrameLayout
+            android:layout_width="96dp"
+            android:layout_height="96dp"
+            android:layout_gravity="center_vertical"
+            android:background="@drawable/w_ring_rest">
+            <ImageView
+                android:id="@+id/w_rest_glyph"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="center"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_w_earbuds"
+                android:tint="@color/widget_on_surface_variant" />
+        </FrameLayout>
+    </LinearLayout>
+
+</FrameLayout>

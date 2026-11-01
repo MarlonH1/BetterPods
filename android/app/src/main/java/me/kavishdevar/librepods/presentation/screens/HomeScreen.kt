@@ -108,7 +108,6 @@ class HomeNavigation(
     val microphone: () -> Unit,
     val version: () -> Unit,
     val troubleshooting: () -> Unit,
-    val purchase: () -> Unit,
 )
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -437,11 +436,9 @@ private fun ConnectedHome(
                         onCheckedChange = viewModel::setAutomaticEarDetectionEnabled) },
                     if (Capability.SLEEP_DETECTION in caps) { m -> SwitchRow(m, stringResource(R.string.sleep_detection), stringResource(R.string.ui_sleep_desc),
                         checked = state.flag(ControlCommandIdentifiers.SLEEP_DETECTION_CONFIG),
-                        onCheckedChange = { viewModel.setControlCommandBoolean(ControlCommandIdentifiers.SLEEP_DETECTION_CONFIG, it) },
-                        enabled = state.isPremium) } else null,
+                        onCheckedChange = { viewModel.setControlCommandBoolean(ControlCommandIdentifiers.SLEEP_DETECTION_CONFIG, it) }) } else null,
                     if (!isMax) { m -> SwitchRow(m, stringResource(R.string.optimized_charging), null,
                         checked = state.dynamicEndOfCharge, onCheckedChange = viewModel::setDynamicEndOfCharge) } else null,
-                    if (!state.isPremium) { m -> SettingsRow(m, stringResource(R.string.ui_unlock), onClick = nav.purchase) } else null,
                     { m -> SettingsRow(m, stringResource(R.string.ui_about), state.version1.ifEmpty { null }, onClick = nav.version) },
                 )
             )

@@ -1,5 +1,5 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
-    <string name="app_name" translatable="false">LibrePods</string>
+    <string name="app_name" translatable="false">DroidPods</string>
     <string name="app_description">Звільніть ваші AirPods від екосистеми Apple</string>
     <string name="app_widget_description">Перегляньте статус батареї ваших AirPods прямо з головного екрана!</string>
     <string name="accessibility">Доступність</string>
@@ -181,7 +181,7 @@
     <string name="custom_camera_package">Власний ID програми камери</string>
     <string name="custom_camera_package_set_success">Власний ID програми камери встановлено успішно</string>
     <string name="app_listener_service_label">Слухач камери</string>
-    <string name="app_listener_service_description">Служба слухача LibrePods для виявлення, коли камера активна, щоб активувати керування камерою на AirPods.</string>
+    <string name="app_listener_service_description">Служба слухача DroidPods для виявлення, коли камера активна, щоб активувати керування камерою на AirPods.</string>
     <string name="open_source_licenses">Ліцензії Відкритого Коду</string>
     <string name="hearing_test">Оновити Тест Слуху</string>
     <string name="update_hearing_test">Оновити Результат Тесту Слуху</string>

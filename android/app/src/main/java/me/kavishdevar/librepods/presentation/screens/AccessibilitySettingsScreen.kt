@@ -80,7 +80,7 @@ private var phoneMediaDebounceJob: Job? = null
 @ExperimentalHazeMaterialsApi
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalEncodingApi::class, FlowPreview::class)
 @Composable
-fun AccessibilitySettingsScreen(viewModel: AirPodsViewModel, navigateToPurchase: () -> Unit, navigateToTransparencyCustomization: () -> Unit) {
+fun AccessibilitySettingsScreen(viewModel: AirPodsViewModel, navigateToTransparencyCustomization: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
 
     val hearingAidEnabled =
@@ -106,22 +106,6 @@ fun AccessibilitySettingsScreen(viewModel: AirPodsViewModel, navigateToPurchase:
     ) {
         Spacer(modifier = Modifier.height(topPadding))
 
-        if (!state.isPremium) {
-            StyledButton(
-                onClick = navigateToPurchase,
-                backdrop = rememberLayerBackdrop(),
-                modifier = Modifier.fillMaxWidth(),
-                maxScale = 0.05f,
-                surfaceColor = MaterialTheme.colorScheme.primary
-            ) {
-                Text(
-                    stringResource(R.string.unlock_advanced_features),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-        }
 
 //            val phoneMediaEQ = remember { mutableStateOf(FloatArray(8) { 0.5f }) }
 //            val phoneEQEnabled = remember { mutableStateOf(false) }
@@ -252,8 +236,7 @@ fun AccessibilitySettingsScreen(viewModel: AirPodsViewModel, navigateToPurchase:
                 viewModel.setControlCommandBoolean(
                     AACPManager.Companion.ControlCommandIdentifiers.ONE_BUD_ANC_MODE, it
                 )
-            },
-            enabled = state.isPremium
+            }
         )
 
         if (state.capabilities.contains(Capability.LOUD_SOUND_REDUCTION) && state.vendorIdHook) {
@@ -266,16 +249,14 @@ fun AccessibilitySettingsScreen(viewModel: AirPodsViewModel, navigateToPurchase:
                         ATTHandles.LOUD_SOUND_REDUCTION,
                         if (it) byteArrayOf(0x01) else byteArrayOf(0x00)
                     )
-                },
-                enabled = state.isPremium
+                }
             )
         }
 
         if (!hearingAidEnabled && state.vendorIdHook) {
             StyledListItem(
                 name = stringResource(R.string.customize_transparency_mode),
-                onClick = navigateToTransparencyCustomization,
-                enabled = state.isPremium
+                onClick = navigateToTransparencyCustomization
             )
         }
 
@@ -305,8 +286,7 @@ fun AccessibilitySettingsScreen(viewModel: AirPodsViewModel, navigateToPurchase:
             snapPoints = listOf(75f),
             startIcon = "\uDBC0\uDEA1",
             endIcon = "\uDBC0\uDEA9",
-            independent = true,
-            enabled = state.isPremium
+            independent = true
         )
 
         if (state.capabilities.contains(Capability.SWIPE_FOR_VOLUME)) {
@@ -322,8 +302,7 @@ fun AccessibilitySettingsScreen(viewModel: AirPodsViewModel, navigateToPurchase:
                     viewModel.setControlCommandBoolean(
                         AACPManager.Companion.ControlCommandIdentifiers.VOLUME_SWIPE_MODE, it
                     )
-                },
-                enabled = state.isPremium
+                }
             )
 
             StyledList(

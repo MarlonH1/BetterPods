@@ -174,8 +174,7 @@ private fun AdaptiveAudioCard(state: AirPodsUiState, viewModel: AirPodsViewModel
                     )
                 }
             },
-            valueRange = 0f..100f,
-            enabled = state.isPremium
+            valueRange = 0f..100f
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(stringResource(R.string.ui_less_noise), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -189,7 +188,6 @@ class ControlsNavigation(
     val rightLongPress: () -> Unit,
     val headGestures: () -> Unit,
     val callControl: (String) -> Unit,
-    val purchase: () -> Unit,
 )
 
 @Composable
@@ -206,13 +204,13 @@ fun ControlsScreen(viewModel: AirPodsViewModel, topPadding: Dp, nav: ControlsNav
                     BudCard(
                         side = stringResource(R.string.left), action = state.leftAction,
                         image = model?.leftBudsRes ?: R.drawable.airpods_pro_2_left,
-                        onClick = if (state.isPremium) nav.leftLongPress else nav.purchase,
+                        onClick = nav.leftLongPress,
                         modifier = Modifier.weight(1f)
                     )
                     BudCard(
                         side = stringResource(R.string.right), action = state.rightAction,
                         image = model?.rightBudsRes ?: R.drawable.airpods_pro_2_right,
-                        onClick = if (state.isPremium) nav.rightLongPress else nav.purchase,
+                        onClick = nav.rightLongPress,
                         modifier = Modifier.weight(1f)
                     )
                 }

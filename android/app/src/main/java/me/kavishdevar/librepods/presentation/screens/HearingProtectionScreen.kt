@@ -49,7 +49,7 @@ import me.kavishdevar.librepods.presentation.theme.LocalDesignSystem
 import me.kavishdevar.librepods.presentation.viewmodel.AirPodsViewModel
 
 @Composable
-fun HearingProtectionScreen(viewModel: AirPodsViewModel, navigateToPurchase: () -> Unit) {
+fun HearingProtectionScreen(viewModel: AirPodsViewModel) {
     val backdrop = rememberLayerBackdrop()
     val state by viewModel.uiState.collectAsState()
 
@@ -65,22 +65,6 @@ fun HearingProtectionScreen(viewModel: AirPodsViewModel, navigateToPurchase: () 
             .padding(horizontal = 16.dp)
     ) {
         Spacer(modifier = Modifier.height(topPadding))
-        if (!state.isPremium) {
-            StyledButton(
-                onClick = navigateToPurchase,
-                backdrop = rememberLayerBackdrop(),
-                modifier = Modifier.fillMaxWidth(),
-                maxScale = 0.05f,
-                surfaceColor = MaterialTheme.colorScheme.primary
-            ) {
-                Text(
-                    stringResource(R.string.unlock_advanced_features),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-        }
 
         if (state.vendorIdHook) {
             StyledToggle(
@@ -93,8 +77,7 @@ fun HearingProtectionScreen(viewModel: AirPodsViewModel, navigateToPurchase: () 
                         ATTHandles.LOUD_SOUND_REDUCTION,
                         byteArrayOf(if (it) 1.toByte() else 0.toByte())
                     )
-                },
-                enabled = state.isPremium
+                }
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -110,8 +93,7 @@ fun HearingProtectionScreen(viewModel: AirPodsViewModel, navigateToPurchase: () 
                 viewModel.setControlCommandBoolean(
                     AACPManager.Companion.ControlCommandIdentifiers.PPE_TOGGLE_CONFIG, it
                 )
-            },
-            enabled = state.isPremium
+            }
         )
         Spacer(modifier = Modifier.height(bottomPadding))
     }

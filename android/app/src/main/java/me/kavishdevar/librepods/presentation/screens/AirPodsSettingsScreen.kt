@@ -136,7 +136,6 @@ fun AirPodsSettingsRoute(
     navigateToHearingAid: () -> Unit,
     navigateToLeftLongPress: () -> Unit,
     navigateToRightLongPress: () -> Unit,
-    navigateToPurchase: () -> Unit,
     navigateToAdaptiveStrength: () -> Unit,
     navigateToEqualizer: () -> Unit,
     navigateToHeadTracking: () -> Unit,
@@ -181,7 +180,6 @@ fun AirPodsSettingsRoute(
             navigateToHearingAid = navigateToHearingAid,
             navigateToLeftLongPress = navigateToLeftLongPress,
             navigateToRightLongPress = navigateToRightLongPress,
-            navigateToPurchase = navigateToPurchase,
             navigateToAdaptiveStrength = navigateToAdaptiveStrength,
             navigateToEqualizer = navigateToEqualizer,
             navigateToHeadTracking = navigateToHeadTracking,
@@ -223,7 +221,6 @@ fun AirPodsSettingsScreen(
         navigateToHearingAid: () -> Unit,
         navigateToLeftLongPress: () -> Unit,
         navigateToRightLongPress: () -> Unit,
-        navigateToPurchase: () -> Unit,
         navigateToAdaptiveStrength: () -> Unit,
         navigateToEqualizer: () -> Unit,
         navigateToHeadTracking: () -> Unit,
@@ -271,41 +268,6 @@ fun AirPodsSettingsScreen(
         ) {
             item(key = "top_padding") { Spacer(modifier = Modifier.height(topPadding)) }
             item(key = "play_update_banner") {
-                if (state.timeUntilFOSSPremiumExpiry > 0L) {
-                    val context = LocalContext.current
-                    Box(
-                        modifier = Modifier
-                            .background(Color(0xFF32829B), RoundedCornerShape(28.dp))
-                            .clip(RoundedCornerShape(28.dp))
-                            .clickable {
-                                val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
-                                    data = "mailto:".toUri()
-                                    putExtra(Intent.EXTRA_EMAIL, arrayOf("billing@kavish.xyz"))
-                                    putExtra(Intent.EXTRA_SUBJECT, "LibrePods Play billing error")
-                                    putExtra(
-                                        Intent.EXTRA_TEXT,
-                                        "Please enter your GitHub username to restore your premium access:\n\nGitHub username: "
-                                    )
-                                }
-                                context.startActivity(emailIntent)
-                            }) {
-                        Text(
-                            text = stringResource(
-                                R.string.play_foss_premium_banner,
-                                maxOf(
-                                    1,
-                                    TimeUnit.MILLISECONDS.toDays(state.timeUntilFOSSPremiumExpiry)
-                                        .toInt()
-                                )
-                            ), modifier = Modifier.padding(16.dp), style = TextStyle(
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                fontFamily = FontFamily(Font(R.font.sf_pro))
-                            )
-                        )
-                    }
-                }
             }
 
             item(key = "battery") {
@@ -415,23 +377,6 @@ fun AirPodsSettingsScreen(
 //                }
 
             item(key = "upgrade_button") {
-                if (!state.isPremium) {
-                    Spacer(modifier = Modifier.height(28.dp))
-                    StyledButton(
-                        onClick = navigateToPurchase,
-                        backdrop = rememberLayerBackdrop(),
-                        modifier = Modifier.fillMaxWidth(),
-                        maxScale = 0.05f,
-                        surfaceColor = MaterialTheme.colorScheme.primary
-                    ) {
-                        Text(
-                            stringResource(R.string.unlock_advanced_features),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
             }
 
             item(key = "spacer_audio") { Spacer(modifier = Modifier.height(16.dp)) }
@@ -468,7 +413,7 @@ fun AirPodsSettingsScreen(
                             checked
                         )
                     },
-                    conversationalAwarenessChecked = conversationalAwarenessChecked && state.isPremium,
+                    conversationalAwarenessChecked = conversationalAwarenessChecked,
                     onConversationalAwarenessCheckedChange = { checked ->
                         setControlCommandBoolean(
                             AACPManager.Companion.ControlCommandIdentifiers.CONVERSATION_DETECT_CONFIG,
@@ -484,8 +429,7 @@ fun AirPodsSettingsScreen(
                     },
                     navigateToAdaptiveStrength = navigateToAdaptiveStrength,
                     navigateToEqualizer = navigateToEqualizer,
-                    vendorIdHook = state.vendorIdHook,
-                    isPremium = state.isPremium
+                    vendorIdHook = state.vendorIdHook
                 )
             }
 
@@ -524,8 +468,7 @@ fun AirPodsSettingsScreen(
                     StyledToggle(
                         label = stringResource(R.string.sleep_detection),
                         checked = state.controlStates[id]?.getOrNull(0) == 0x01.toByte(),
-                        onCheckedChange = { setControlCommandBoolean(id, it) },
-                        enabled = state.isPremium
+                        onCheckedChange = { setControlCommandBoolean(id, it) }
                     )
                 }
             }
@@ -977,7 +920,6 @@ fun AirPodsSettingsScreenPreviewApple() {
                 navigateToHearingAid = {},
                 navigateToLeftLongPress = {},
                 navigateToRightLongPress = {},
-                navigateToPurchase = {},
                 navigateToAdaptiveStrength = {},
                 navigateToEqualizer = {},
                 navigateToHeadTracking = {},
@@ -1024,7 +966,6 @@ fun AirPodsSettingsScreenPreviewMaterial() {
                 navigateToHearingAid = {},
                 navigateToLeftLongPress = {},
                 navigateToRightLongPress = {},
-                navigateToPurchase = {},
                 navigateToAdaptiveStrength = {},
                 navigateToEqualizer = {},
                 navigateToHeadTracking = {},

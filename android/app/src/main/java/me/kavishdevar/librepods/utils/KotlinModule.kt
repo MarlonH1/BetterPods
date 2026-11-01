@@ -127,7 +127,7 @@ class KotlinModule: XposedModule() {
                     }
 
                     val uri = iconUri.toUri()
-                    if (!uri.toString().startsWith("android.resource://me.kavishdevar.librepods")) {
+                    if (!uri.toString().startsWith("android.resource://${me.kavishdevar.librepods.BuildConfig.APPLICATION_ID}")) {
                         return@intercept chain.proceed()
                     }
 

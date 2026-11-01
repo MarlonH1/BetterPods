@@ -1,5 +1,5 @@
    <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
-        <string name="app_name" translatable="false">LibrePods</string>
+        <string name="app_name" translatable="false">DroidPods</string>
         <string name="app_description">Libera i tuoi AirPods dall'ecosistema Apple.</string>
         <string name="app_widget_description">Visualizza lo stato della batteria dei tuoi AirPods direttamente dalla schermata principale!</string>
         <string name="accessibility">Accessibilità</string>
@@ -181,7 +181,7 @@
         <string name="custom_camera_package">Appid Fotocamera Personalizzata</string>
         <string name="custom_camera_package_set_success">Appid fotocamera personalizzata impostata correttamente</string>
         <string name="app_listener_service_label">Ascoltatore fotocamera</string>
-        <string name="app_listener_service_description">Servizio di ascolto per LibrePods per rilevare quando la fotocamera è attiva per attivare il controllo della fotocamera sugli AirPods.</string>
+        <string name="app_listener_service_description">Servizio di ascolto per DroidPods per rilevare quando la fotocamera è attiva per attivare il controllo della fotocamera sugli AirPods.</string>
         <string name="open_source_licenses">Licenze Open Source</string>
         <string name="hearing_test">Aggiorna Test Uditivo</string>
         <string name="update_hearing_test">Aggiorna Risultato Test Uditivo</string>

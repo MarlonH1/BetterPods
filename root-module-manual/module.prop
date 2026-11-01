@@ -1,7 +1,6 @@
-id=librepods
-name=LibrePods
+id=droidpods
+name=DroidPods
 version=v0.2.6
 versionCode=46
-author=@kavishdevar
-description=Installs LibrePods as a system app for granting BLUETOOTH_PRIVILEGED and MODIFY_PHONE_STATE permission for better integraion with android.
-updateJson=https://raw.githubusercontent.com/kavishdevar/librepods/main/extras/update_nonpatch.json
+author=marlon (based on LibrePods by @kavishdevar)
+description=Installs DroidPods as a system app for granting BLUETOOTH_PRIVILEGED, MODIFY_PHONE_STATE and MODIFY_AUDIO_ROUTING for better integration with Android.

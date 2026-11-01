@@ -6,7 +6,7 @@
     android:initialLayout="@layout/widget_modes_grid"
     android:minWidth="110dp"
     android:minHeight="110dp"
-    android:previewLayout="@layout/widget_modes_grid"
+    android:previewLayout="@layout/widget_modes_grid_preview"
     android:resizeMode="horizontal|vertical"
     android:targetCellWidth="2"
     android:targetCellHeight="2"

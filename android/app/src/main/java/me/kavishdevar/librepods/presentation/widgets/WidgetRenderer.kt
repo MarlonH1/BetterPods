@@ -579,15 +579,16 @@ object WidgetRenderer {
         setViewVisibility(container, if (battery != null) View.VISIBLE else View.GONE)
         if (battery == null) return
         val low = battery.level < CAPSULE_LOW && !battery.isCharging()
-        setProgressBar(progress, 100, maxOf(minFill, battery.level), false)
-        // The text box spans exactly the minimum pill width, so the text sits centered in it.
-        setFloat(textRow(container), "setWeightSum", 100f / minFill)
-        val fill = when {
+        val fill = maxOf(minFill, battery.level)
+        setProgressBar(progress, 100, fill, false)
+        // The text box spans exactly the filled part, so the text sits centered on the pill.
+        setFloat(textRow(container), "setWeightSum", 100f / fill)
+        val tint = when {
             low -> R.color.widget_error_container
             battery.component == BatteryComponent.CASE -> R.color.widget_tertiary_container
             else -> R.color.widget_primary_container
         }
-        setColorStateList(progress, "setProgressTintList", fill)
+        setColorStateList(progress, "setProgressTintList", tint)
         setTextViewText(label, "${battery.level}%")
         setTextViewCompoundDrawablesRelative(label, 0, 0, if (battery.isCharging()) R.drawable.ic_w_bolt_small else 0, 0)
     }
