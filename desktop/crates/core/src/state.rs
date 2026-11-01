@@ -1,4 +1,7 @@
-use aacp::{BatteryStatus, Component, ControlId, EarState, Incoming, ListeningMode, Metadata};
+use std::collections::BTreeMap;
+
+use aacp::routing::Mac;
+use aacp::{BatteryStatus, Capability, Component, ControlId, EarState, Incoming, ListeningMode, Metadata, Model};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BudBattery {
@@ -10,6 +13,10 @@ pub struct BudBattery {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DeviceState {
     pub connected: bool,
+    /// Bluetooth address of the connected AirPods, as `AA:BB:CC:DD:EE:FF`.
+    pub address: String,
+    /// This computer's Bluetooth address, if known.
+    pub local: Option<Mac>,
     /// Handshake done and notifications requested; settings are live.
     pub ready: bool,
     pub metadata: Metadata,
@@ -22,12 +29,22 @@ pub struct DeviceState {
     pub primary: Option<Component>,
     pub ear_primary: Option<EarState>,
     pub ear_secondary: Option<EarState>,
-    pub listening_mode: Option<ListeningMode>,
-    pub conversational_awareness: Option<bool>,
-    pub adaptive_volume: Option<bool>,
-    pub adaptive_strength: Option<u8>,
-    pub allow_off_mode: Option<bool>,
-    pub owns_connection: Option<bool>,
+    /// Last value the AirPods reported for each control id (opcode 0x09).
+    pub controls: BTreeMap<u8, [u8; 4]>,
+    /// Conversational awareness level while it's active: 1 speaking … 9 normal.
+    pub conversation_level: Option<u8>,
+    /// Every device the AirPods are connected to, this one included.
+    pub connected_devices: Vec<Mac>,
+    /// What other devices said they are ("iPhone", "Mac", …), learned from smart routing.
+    pub device_kinds: BTreeMap<Mac, &'static str>,
+    /// Names other devices announced, for "moved to …".
+    pub device_names: BTreeMap<Mac, String>,
+    /// Which device plays, and whether anything does (`kind` 0 = nothing).
+    pub audio_source: Option<(Mac, u8)>,
+    /// Counts `SetOwnershipToFalse` requests: another device took the AirPods.
+    pub taken_count: u32,
+    /// Who took them last.
+    pub taken_by: Option<Mac>,
 }
 
 impl DeviceState {
@@ -59,19 +76,22 @@ impl DeviceState {
                 self.ear_primary = Some(*primary);
                 self.ear_secondary = Some(*secondary);
             }
-            Incoming::Control { .. } => {
-                if let Some(m) = packet.listening_mode() {
-                    self.listening_mode = Some(m);
+            Incoming::Control { id, data } => {
+                self.controls.insert(*id, *data);
+            }
+            Incoming::ConversationLevel(l) => self.conversation_level = Some(*l),
+            Incoming::ConnectedDevices(d) => self.connected_devices = d.clone(),
+            Incoming::AudioSource { mac, kind } => self.audio_source = Some((*mac, *kind)),
+            Incoming::SmartRouting { sender, text, name } => {
+                if let Some(k) = aacp::routing::device_kind(text) {
+                    self.device_kinds.insert(*sender, k);
                 }
-                self.apply_flag(packet, ControlId::ConversationalAwareness, |s| &mut s.conversational_awareness);
-                self.apply_flag(packet, ControlId::AdaptiveVolume, |s| &mut s.adaptive_volume);
-                self.apply_flag(packet, ControlId::AllowOffOption, |s| &mut s.allow_off_mode);
-                if let Incoming::Control { id, data } = packet {
-                    match ControlId::from_u8(*id) {
-                        Some(ControlId::AdaptiveStrength) => self.adaptive_strength = Some(data[0]),
-                        Some(ControlId::OwnsConnection) => self.owns_connection = Some(data[0] == 0x01),
-                        _ => {}
-                    }
+                if let Some(n) = name {
+                    self.device_names.insert(*sender, n.clone());
+                }
+                if text.contains("SetOwnershipToFalse") {
+                    self.taken_count += 1;
+                    self.taken_by = Some(*sender);
                 }
             }
             _ => {}
@@ -79,10 +99,42 @@ impl DeviceState {
         *self != before
     }
 
-    fn apply_flag(&mut self, p: &Incoming, id: ControlId, field: impl FnOnce(&mut Self) -> &mut Option<bool>) {
-        if let Some(v) = p.flag(id) {
-            *field(self) = Some(v);
+    pub fn control(&self, id: ControlId) -> Option<[u8; 4]> {
+        self.controls.get(&(id as u8)).copied()
+    }
+
+    /// Boolean controls are 0x01 on, 0x02 off.
+    pub fn flag(&self, id: ControlId) -> Option<bool> {
+        match self.control(id)?[0] {
+            0x01 => Some(true),
+            0x02 => Some(false),
+            _ => None,
         }
+    }
+
+    pub fn listening_mode(&self) -> Option<ListeningMode> {
+        ListeningMode::from_u8(self.control(ControlId::ListeningMode)?[0])
+    }
+
+    pub fn model(&self) -> Option<&'static Model> {
+        Model::by_number(&self.metadata.model_number)
+    }
+
+    /// Whether the connected model has `c`. Unknown models get the full set,
+    /// so new hardware isn't locked out before the table learns about it.
+    pub fn has(&self, c: Capability) -> bool {
+        self.model().is_none_or(|m| m.has(c))
+    }
+
+    /// Whether another device is playing through the AirPods right now.
+    pub fn other_device_playing(&self, local: Option<&Mac>) -> bool {
+        self.audio_source.is_some_and(|(mac, kind)| kind != 0 && Some(&mac) != local)
+    }
+
+    /// "iPhone", "Mac", … for `mac`, or a generic name.
+    /// What another device calls itself, else its kind.
+    pub fn device_name(&self, mac: &Mac) -> Option<String> {
+        self.device_names.get(mac).cloned().or_else(|| self.device_kinds.get(mac).map(|k| k.to_string()))
     }
 
     /// Lowest bud level, as shown on the tray icon and by `droidpods status --format {min}`.

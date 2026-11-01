@@ -1,4 +1,5 @@
 use crate::control::{ControlId, ListeningMode};
+use crate::routing::Mac;
 
 /// Every AACP data packet starts with this, followed by a little-endian u16 opcode.
 const PREFIX: [u8; 4] = [0x04, 0x00, 0x04, 0x00];
@@ -12,21 +13,21 @@ mod opcode {
     pub const RENAME: u16 = 0x001A;
     pub const MAGIC_KEYS: u16 = 0x0031;
     pub const CONVERSATION_LEVEL: u16 = 0x004B;
+    pub const AUDIO_SOURCE: u16 = 0x000E;
+    pub const CONNECTED_DEVICES: u16 = 0x002E;
+    pub const SMART_ROUTING_RESP: u16 = 0x0011;
 }
 
 // ---------------------------------------------------------------- outgoing
 
 /// First packet after the L2CAP channel opens.
-pub const HANDSHAKE: [u8; 16] = [
-    0x00, 0x00, 0x04, 0x00, 0x01, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-];
+pub const HANDSHAKE: [u8; 16] =
+    [0x00, 0x00, 0x04, 0x00, 0x01, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
 /// Sent after [`Incoming::HandshakeAck`]; unlocks conversational awareness and adaptive features.
-pub const SET_SPECIFIC_FEATURES: [u8; 14] = [
-    0x04, 0x00, 0x04, 0x00, 0x4D, 0x00, 0xD7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-];
+pub const SET_SPECIFIC_FEATURES: [u8; 14] =
+    [0x04, 0x00, 0x04, 0x00, 0x4D, 0x00, 0xD7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
 /// Sent after [`Incoming::FeaturesAck`]; the AirPods then push battery, ear and control state.
-pub const REQUEST_NOTIFICATIONS: [u8; 11] =
-    [0x04, 0x00, 0x04, 0x00, 0x0F, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
+pub const REQUEST_NOTIFICATIONS: [u8; 11] = [0x04, 0x00, 0x04, 0x00, 0x0F, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
 /// Asks for the IRK and encryption key used to decode BLE proximity adverts.
 pub const REQUEST_MAGIC_CLOUD_KEYS: [u8; 8] = [0x04, 0x00, 0x04, 0x00, 0x30, 0x00, 0x05, 0x00];
 
@@ -45,11 +46,6 @@ pub fn set_listening_mode(mode: ListeningMode) -> Vec<u8> {
 /// Boolean control commands use 0x01 for on and 0x02 for off.
 pub fn set_flag(id: ControlId, on: bool) -> Vec<u8> {
     control_command(id, [if on { 0x01 } else { 0x02 }, 0, 0, 0])
-}
-
-/// Adaptive audio strength, 0–100.
-pub fn set_adaptive_strength(level: u8) -> Vec<u8> {
-    control_command(ControlId::AdaptiveStrength, [level.min(100), 0, 0, 0])
 }
 
 /// `04 00 04 00 1A 00 01 [len] 00 [utf-8 name]`
@@ -153,12 +149,35 @@ pub enum Incoming {
     FeaturesAck,
     Battery(Vec<Battery>),
     /// Primary and secondary bud (the primary is the one holding the microphone).
-    EarDetection { primary: EarState, secondary: EarState },
-    Control { id: u8, data: [u8; 4] },
+    EarDetection {
+        primary: EarState,
+        secondary: EarState,
+    },
+    Control {
+        id: u8,
+        data: [u8; 4],
+    },
     /// Conversational awareness volume level, 1 (speaking) … 9 (normal).
     ConversationLevel(u8),
     Metadata(Metadata),
-    MagicCloudKeys { irk: [u8; 16], enc_key: [u8; 16] },
+    MagicCloudKeys {
+        irk: [u8; 16],
+        enc_key: [u8; 16],
+    },
+    /// Every device the AirPods are connected to right now, this one included.
+    ConnectedDevices(Vec<Mac>),
+    /// Which device plays; `kind` 0 means nothing does.
+    AudioSource {
+        mac: Mac,
+        kind: u8,
+    },
+    /// A smart-routing message from another device, e.g. `SetOwnershipToFalse`.
+    SmartRouting {
+        sender: Mac,
+        text: String,
+        /// The sender's device name, if it announced one.
+        name: Option<String>,
+    },
     Unknown(Vec<u8>),
 }
 
@@ -166,9 +185,7 @@ impl Incoming {
     /// Listening mode carried by a control packet, if this is one.
     pub fn listening_mode(&self) -> Option<ListeningMode> {
         match self {
-            Incoming::Control { id, data } if *id == ControlId::ListeningMode as u8 => {
-                ListeningMode::from_u8(data[0])
-            }
+            Incoming::Control { id, data } if *id == ControlId::ListeningMode as u8 => ListeningMode::from_u8(data[0]),
             _ => None,
         }
     }
@@ -199,22 +216,39 @@ pub fn parse(data: &[u8]) -> Incoming {
     let parsed = match op {
         opcode::FEATURES_ACK => Some(Incoming::FeaturesAck),
         opcode::BATTERY => parse_battery(body),
-        opcode::EAR_DETECTION if body.len() >= 2 => Some(Incoming::EarDetection {
-            primary: EarState::from_u8(body[0]),
-            secondary: EarState::from_u8(body[1]),
-        }),
-        opcode::CONTROL if body.len() >= 5 => Some(Incoming::Control {
-            id: body[0],
-            data: [body[1], body[2], body[3], body[4]],
-        }),
+        opcode::EAR_DETECTION if body.len() >= 2 => {
+            Some(Incoming::EarDetection { primary: EarState::from_u8(body[0]), secondary: EarState::from_u8(body[1]) })
+        }
+        opcode::CONTROL if body.len() >= 5 => {
+            Some(Incoming::Control { id: body[0], data: [body[1], body[2], body[3], body[4]] })
+        }
         opcode::CONVERSATION_LEVEL if body.len() == 4 && body[..3] == [0x02, 0x00, 0x01] => {
             Some(Incoming::ConversationLevel(body[3]))
         }
         opcode::METADATA => Some(Incoming::Metadata(parse_metadata(body))),
         opcode::MAGIC_KEYS => parse_magic_keys(body),
+        opcode::CONNECTED_DEVICES if data.len() >= 9 => Some(Incoming::ConnectedDevices(
+            data[9..].chunks_exact(8).take(data[8] as usize).map(|c| mac(&c[..6])).collect(),
+        )),
+        opcode::AUDIO_SOURCE if data.len() >= 13 => {
+            Some(Incoming::AudioSource { mac: reversed_mac(&data[6..12]), kind: data[12] })
+        }
+        opcode::SMART_ROUTING_RESP if data.len() >= 12 => Some(Incoming::SmartRouting {
+            sender: reversed_mac(&data[6..12]),
+            text: String::from_utf8_lossy(&data[12..]).into_owned(),
+            name: crate::routing::bt_name(&data[12..]),
+        }),
         _ => None,
     };
     parsed.unwrap_or_else(|| Incoming::Unknown(data.to_vec()))
+}
+
+fn mac(b: &[u8]) -> Mac {
+    [b[0], b[1], b[2], b[3], b[4], b[5]]
+}
+
+fn reversed_mac(b: &[u8]) -> Mac {
+    [b[5], b[4], b[3], b[2], b[1], b[0]]
 }
 
 /// `[count] ([component] 01 [level] [status] 01) × count`
@@ -230,11 +264,7 @@ fn parse_battery(body: &[u8]) -> Option<Incoming> {
             if e[1] != 0x01 || e[4] != 0x01 {
                 return None;
             }
-            Some(Battery {
-                component: Component::from_u8(e[0])?,
-                level: e[2],
-                status: BatteryStatus::from_u8(e[3]),
-            })
+            Some(Battery { component: Component::from_u8(e[0])?, level: e[2], status: BatteryStatus::from_u8(e[3]) })
         })
         .collect::<Option<Vec<_>>>()
         .map(Incoming::Battery)
@@ -250,13 +280,7 @@ fn parse_metadata(body: &[u8]) -> Metadata {
         .filter(|s| !s.is_empty())
         .map(|s| String::from_utf8_lossy(s).into_owned());
     let mut next = || strings.next().unwrap_or_default();
-    Metadata {
-        name: next(),
-        model_number: next(),
-        manufacturer: next(),
-        serial_number: next(),
-        firmware: next(),
-    }
+    Metadata { name: next(), model_number: next(), manufacturer: next(), serial_number: next(), firmware: next() }
 }
 
 /// `02 01 [len u16 BE] 00 [16 bytes irk] 04 [len u16 BE] 00 [16 bytes enc key]`
@@ -265,10 +289,7 @@ fn parse_magic_keys(body: &[u8]) -> Option<Incoming> {
     if b.len() < 40 || b[0] != 0x01 || b[1..3] != [0x00, 0x10] || b[20] != 0x04 || b[21..23] != [0x00, 0x10] {
         return None;
     }
-    Some(Incoming::MagicCloudKeys {
-        irk: b[4..20].try_into().ok()?,
-        enc_key: b[24..40].try_into().ok()?,
-    })
+    Some(Incoming::MagicCloudKeys { irk: b[4..20].try_into().ok()?, enc_key: b[24..40].try_into().ok()? })
 }
 
 #[cfg(test)]
@@ -285,8 +306,6 @@ mod tests {
         assert_eq!(set_listening_mode(ListeningMode::Off), hex("04 00 04 00 09 00 0D 01 00 00 00"));
         assert_eq!(set_flag(ControlId::ConversationalAwareness, true), hex("04 00 04 00 09 00 28 01 00 00 00"));
         assert_eq!(set_flag(ControlId::ConversationalAwareness, false), hex("04 00 04 00 09 00 28 02 00 00 00"));
-        assert_eq!(set_adaptive_strength(62), hex("04 00 04 00 09 00 2E 3E 00 00 00"));
-        assert_eq!(set_adaptive_strength(250), hex("04 00 04 00 09 00 2E 64 00 00 00"));
         assert_eq!(rename("Pods"), hex("04 00 04 00 1A 00 01 04 00 50 6F 64 73"));
     }
 
@@ -315,7 +334,11 @@ mod tests {
         let p = parse(&hex("04 00 04 00 04 00 01 01 01 4F 02 01"));
         assert_eq!(
             p,
-            Incoming::Battery(vec![Battery { component: Component::Headset, level: 79, status: BatteryStatus::Discharging }])
+            Incoming::Battery(vec![Battery {
+                component: Component::Headset,
+                level: 79,
+                status: BatteryStatus::Discharging
+            }])
         );
     }
 

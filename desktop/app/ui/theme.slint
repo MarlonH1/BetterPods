@@ -1,0 +1,55 @@
+// Design tokens; mirror the canvas design (win.css / lp.css), with more contrast in light mode.
+
+export global Theme {
+    in-out property <bool> dark: true;
+    out property <color> win: dark ? #14171C : #E8ECF1;
+    out property <color> rail: dark ? #0F1216 : #DDE3EA;
+    out property <color> group: dark ? #1B1F26 : #FFFFFF;
+    out property <color> field: dark ? #23272F : #F0F2F5;
+    out property <color> card: dark ? #ffffff0d : #0f192810;
+    out property <color> card2: dark ? #ffffff17 : #0f19281c;
+    out property <color> line: dark ? #ffffff14 : #0f192824;
+    out property <color> line2: dark ? #ffffff21 : #0f192838;
+    out property <color> text: dark ? #EEF1F6 : #12161D;
+    out property <color> dim: dark ? #949DAC : #475062;
+    out property <color> accent: dark ? #2E9BFF : #0074DA;
+    out property <color> accent-soft: dark ? #2e9bff2e : #0074da1f;
+    out property <color> ok: dark ? #3DD68C : #11864F;
+    out property <color> warn: dark ? #FFB224 : #9A5D00;
+    out property <color> low: dark ? #FF6A5F : #C9302A;
+    out property <color> toggle-off: dark ? #ffffff21 : #9AA3B2;
+    out property <string> mono: "Noto Sans Mono";
+}
+
+// Stroke icons on a 24×24 grid (from the design's symbol sheet).
+export global Icons {
+    out property <string> home: "M4 11 L12 4 L20 11 V19 a1 1 0 0 1-1 1 h-4 v-6 H9 v6 H5 a1 1 0 0 1-1-1 Z";
+    out property <string> sound: "M5 10v4M9 7v10M13 4v16M17 8v8M21 11v2";
+    out property <string> hand: "M8 12V6.5a1.5 1.5 0 0 1 3 0V11M11 10V5a1.5 1.5 0 0 1 3 0v6M14 10.5V7a1.5 1.5 0 0 1 3 0v6.5c0 4-2.5 6.5-6 6.5-2.3 0-3.8-1-5-3l-2.2-3.8a1.4 1.4 0 0 1 2.3-1.6L8 13";
+    out property <string> access: "M13.6 5a1.6 1.6 0 1 1-3.2 0a1.6 1.6 0 1 1 3.2 0Z M5 8.5l7 1.5 7-1.5M12 10v4l-3 6M12 14l3 6";
+    out property <string> pods: "M8 4C5.5 4 4 5.8 4 8.2c0 2 1.2 3.4 3.2 3.8.6.1.8.5.8 1.2v5.3a1.5 1.5 0 0 0 3 0V7.3C11 5.2 10 4 8 4ZM16 4c2.5 0 4 1.8 4 4.2 0 2-1.2 3.4-3.2 3.8-.6.1-.8.5-.8 1.2v5.3a1.5 1.5 0 0 1-3 0V7.3C13 5.2 14 4 16 4Z";
+    out property <string> headphones: "M4 15 V12 A8 8 0 0 1 20 12 V15 M3 14 h4 v6 h-4 Z M17 14 h4 v6 h-4 Z";
+    out property <string> gear: "M15 12a3 3 0 1 1-6 0a3 3 0 1 1 6 0Z M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M6 18l1.4-1.4M16.6 7.4 18 6";
+    out property <string> bubble: "M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v6a2.5 2.5 0 0 1-2.5 2.5H11l-4 4v-4A2 2 0 0 1 5 13Z";
+    out property <string> vol: "M4 9.5h3l4-3.5v12l-4-3.5H4Z M15 9a4 4 0 0 1 0 6M17.5 6.5a7.5 7.5 0 0 1 0 11";
+    out property <string> ear: "M7 9a5 5 0 0 1 10 0c0 3-3 3.5-3 6.5a2.5 2.5 0 0 1-5 0 M10 9.5a2 2 0 0 1 4 0";
+    out property <string> head: "M17 10a5 5 0 1 1-10 0a5 5 0 1 1 10 0Z M5 20c1.2-3 4-4.5 7-4.5s5.8 1.5 7 4.5M3 8c.6-2 1.6-3.4 3-4.4M21 8c-.6-2-1.6-3.4-3-4.4";
+    out property <string> moon: "M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5Z";
+    out property <string> mic: "M9 6.5a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0Z M6 11.5a6 6 0 0 0 12 0M12 17.5v3";
+    out property <string> plug: "M9 4v4M15 4v4M7 8h10v3a5 5 0 0 1-10 0ZM12 16v4";
+    out property <string> swipe: "M12 4v16M8 8l4-4 4 4M8 16l4 4 4-4";
+    out property <string> call: "M6 4h3l1.5 4-2 1.5a10 10 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2 2A16 16 0 0 1 4 6a2 2 0 0 1 2-2Z";
+    out property <string> bell: "M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15ZM10 20.5h4";
+    out property <string> tray: "M5.5 5h13a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z M3.5 15h17M15 17h2";
+    out property <string> power: "M12 4v7 M7.5 7a7 7 0 1 0 9 0";
+    out property <string> wrench: "M14.5 4.5a4.5 4.5 0 0 0-4.3 5.8L4 16.5 7.5 20l6.2-6.2a4.5 4.5 0 0 0 5.8-4.3l-2.8 2.8-3-3Z";
+    out property <string> info: "M20.5 12a8.5 8.5 0 1 1-17 0a8.5 8.5 0 1 1 17 0Z M12 11v5M12 8v.01";
+    out property <string> shield: "M12 3.5 5 6v5.5c0 4.3 3 7.6 7 9 4-1.4 7-4.7 7-9V6Z";
+    out property <string> swap: "M5 8h13l-3-3M19 16H6l3 3";
+    out property <string> speaker: "M7 3.5h10a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H7A1.5 1.5 0 0 1 5.5 19V5A1.5 1.5 0 0 1 7 3.5Z M15 14a3 3 0 1 1-6 0a3 3 0 1 1 6 0Z M12 7.5v.01";
+    out property <string> chev: "m9.5 6 6 6-6 6";
+    out property <string> min: "M6 12h12";
+    out property <string> x: "M7 7l10 10M17 7 7 17";
+    out property <string> check: "m5 12.5 4.5 4.5L19 7.5";
+    out property <string> anc: "M20.5 12a8.5 8.5 0 1 1-17 0a8.5 8.5 0 1 1 17 0Z M15.4 12a3.4 3.4 0 1 1-6.8 0a3.4 3.4 0 1 1 6.8 0Z";
+}

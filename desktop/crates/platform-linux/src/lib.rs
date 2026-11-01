@@ -1,12 +1,18 @@
 //! Linux platform layer: finds connected AirPods through BlueZ and opens the
-//! AACP control channel (L2CAP PSM 0x1001) to them.
+//! AACP control channel (L2CAP PSM 0x1001) to them, plus the desktop services
+//! the app needs: audio routing, media control, notifications and the tray.
+
+pub mod audio;
+pub mod media;
+pub mod notify;
+pub mod tray;
 
 use std::io;
 use std::time::Duration;
 
 use bluer::l2cap::{SeqPacket, SocketAddr};
 use bluer::{Address, AddressType, Uuid};
-use droidpods_core::{run_session, Command, DeviceState, SessionEnd, Transport};
+use droidpods_core::{run_session, Command, DeviceState, Peers, SessionEnd, Transport};
 use tokio::sync::{mpsc, watch};
 
 /// The AACP channel over an L2CAP SEQPACKET socket (message boundaries are kept).
@@ -73,8 +79,10 @@ pub async fn supervise(
     mut commands: mpsc::Receiver<Command>,
     state: watch::Sender<DeviceState>,
     interval: Duration,
+    name: impl Fn() -> String,
 ) -> bluer::Result<()> {
     let bt = bluer::Session::new().await?;
+    let local = bt.default_adapter().await?.address().await.ok().map(|a| a.0);
     loop {
         let target = paired_airpods(&bt).await?.into_iter().find(|p| p.connected);
         if let Some(p) = target {
@@ -93,7 +101,12 @@ pub async fn supervise(
                         false
                     };
                     let end = tokio::select! {
-                        end = run_session(link, fwd_rx, state.clone()) => end,
+                        end = run_session(
+                            link,
+                            Peers { airpods: p.address.to_string(), local, name: name(), platform: "Linux" },
+                            fwd_rx,
+                            state.clone(),
+                        ) => end,
                         session_alive = fwd => if session_alive { SessionEnd::Closed } else { return Ok(()) },
                     };
                     log::info!("session ended: {end:?}");

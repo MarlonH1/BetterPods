@@ -36,7 +36,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("L2CAP channel open to {}", p.address);
     let (cmd_tx, cmd_rx) = mpsc::channel(1);
     let (state_tx, mut state_rx) = watch::channel(DeviceState::default());
-    let session = tokio::spawn(run_session(link, cmd_rx, state_tx));
+    let session = tokio::spawn(run_session(
+        link,
+        droidpods_core::Peers { airpods: p.address.to_string(), local: None, name: "probe".into(), platform: "Linux" },
+        cmd_rx,
+        state_tx,
+    ));
 
     let deadline = tokio::time::sleep(Duration::from_secs(secs));
     tokio::pin!(deadline);
@@ -48,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if changed.is_err() { break; }
                 let s = state_rx.borrow().clone();
                 println!("{s:#?}");
-                if let (Some(target), None, Some(current)) = (switch_to, original, s.listening_mode) {
+                if let (Some(target), None, Some(current)) = (switch_to, original, s.listening_mode()) {
                     original = Some(current);
                     println!(">>> switching {current:?} -> {target:?}");
                     cmd_tx.send(Command::SetListeningMode(target)).await?;

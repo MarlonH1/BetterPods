@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use aacp::{ControlId, EarState, ListeningMode};
 use droidpods_core::fake::{ear_packet, mem_pair, run_fake, FakeConfig, FakeEvent};
-use droidpods_core::{run_session, BudBattery, Command, DeviceState, SessionEnd};
+use droidpods_core::{run_session, BudBattery, Command, DeviceState, Peers, SessionEnd};
 use tokio::sync::{mpsc, watch};
 use tokio::time::timeout;
 
@@ -25,32 +25,40 @@ async fn full_session_against_fake_airpods() {
 
     let (cmd_tx, cmd_rx) = mpsc::channel(8);
     let (state_tx, mut state_rx) = watch::channel(DeviceState::default());
-    let session = tokio::spawn(run_session(host, cmd_rx, state_tx));
+    let session = tokio::spawn(run_session(
+        host,
+        Peers { airpods: "00:00:00:00:00:01".into(), local: None, name: "Test".into(), platform: "Linux" },
+        cmd_rx,
+        state_tx,
+    ));
 
     // Handshake → features → notifications, in that order.
     assert_eq!(seen_rx.recv().await.unwrap(), aacp::HANDSHAKE);
     assert_eq!(seen_rx.recv().await.unwrap(), aacp::SET_SPECIFIC_FEATURES);
     assert_eq!(seen_rx.recv().await.unwrap(), aacp::REQUEST_NOTIFICATIONS);
 
-    let s = wait_for(&mut state_rx, "initial state", |s| s.ready && s.case.is_some() && s.conversational_awareness.is_some()).await;
+    let s = wait_for(&mut state_rx, "initial state", |s| {
+        s.ready && s.case.is_some() && s.flag(ControlId::ConversationalAwareness).is_some()
+    })
+    .await;
     assert_eq!(s.metadata.name, "AirPods Pro 2");
     assert_eq!(s.metadata.model_number, "A3047");
     assert_eq!(s.left, Some(BudBattery { level: 82, charging: false }));
     assert_eq!(s.right, Some(BudBattery { level: 79, charging: false }));
     assert_eq!(s.case, Some(BudBattery { level: 31, charging: true }));
-    assert_eq!(s.listening_mode, Some(ListeningMode::Adaptive));
-    assert_eq!(s.conversational_awareness, Some(true));
+    assert_eq!(s.listening_mode(), Some(ListeningMode::Adaptive));
+    assert_eq!(s.flag(ControlId::ConversationalAwareness), Some(true));
     assert_eq!(s.min_bud_level(), Some(79));
     assert!(s.any_in_ear());
 
     // Switch to noise cancellation: the exact packet goes out and the state follows.
     cmd_tx.send(Command::SetListeningMode(ListeningMode::NoiseCancellation)).await.unwrap();
     assert_eq!(seen_rx.recv().await.unwrap(), aacp::set_listening_mode(ListeningMode::NoiseCancellation));
-    wait_for(&mut state_rx, "ANC", |s| s.listening_mode == Some(ListeningMode::NoiseCancellation)).await;
+    wait_for(&mut state_rx, "ANC", |s| s.listening_mode() == Some(ListeningMode::NoiseCancellation)).await;
 
     cmd_tx.send(Command::SetFlag(ControlId::ConversationalAwareness, false)).await.unwrap();
     assert_eq!(seen_rx.recv().await.unwrap(), aacp::set_flag(ControlId::ConversationalAwareness, false));
-    wait_for(&mut state_rx, "CA off", |s| s.conversational_awareness == Some(false)).await;
+    wait_for(&mut state_rx, "CA off", |s| s.flag(ControlId::ConversationalAwareness) == Some(false)).await;
 
     // Both buds taken out.
     ev_tx.send(FakeEvent::Raw(ear_packet(1, 1))).unwrap();
@@ -72,7 +80,12 @@ async fn session_stops_when_ui_goes_away() {
     tokio::spawn(run_fake(pods, FakeConfig::default(), ev_rx, None));
     let (cmd_tx, cmd_rx) = mpsc::channel(1);
     let (state_tx, mut state_rx) = watch::channel(DeviceState::default());
-    let session = tokio::spawn(run_session(host, cmd_rx, state_tx));
+    let session = tokio::spawn(run_session(
+        host,
+        Peers { airpods: "00:00:00:00:00:01".into(), local: None, name: "Test".into(), platform: "Linux" },
+        cmd_rx,
+        state_tx,
+    ));
     wait_for(&mut state_rx, "ready", |s| s.ready).await;
     drop(cmd_tx);
     let end = timeout(Duration::from_secs(2), session).await.unwrap().unwrap();

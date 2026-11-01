@@ -1,0 +1,665 @@
+// The companion window's pages. Rows only appear for features the connected
+// model has, the way an iPhone shows them.
+
+import { Theme, Icons } from "theme.slint";
+import {
+    BatArt, CheckRow, Chip, FieldRow, Group, ModeGlyph, OptionsRow, PageHeader, Section,
+    SelectRow, SliderRow, ToggleRow, ValueRow, WipRow,
+} from "widgets.slint";
+
+export struct Bat {
+    // 0 left bud, 1 right bud, 2 case, 3 headset (AirPods Max)
+    kind: int,
+    label: string,
+    level: int,
+    charging: bool,
+}
+
+export struct Known {
+    name: string,
+    address: string,
+    subtitle: string,
+}
+
+// What the AirPods report. Filled from Rust; every change goes out through `set`.
+export global Dev {
+    in property <bool> connected;
+    in property <string> name;
+    in property <string> status-line;
+    in property <[Bat]> bats;
+    in property <bool> headphones;
+    in property <string> model-name;
+    in property <string> model-number;
+    in property <string> serial;
+    in property <string> firmware;
+
+    in property <bool> cap-listening;
+    in property <bool> cap-ca;
+    in property <bool> cap-adaptive;
+    in property <bool> cap-pv;
+    in property <bool> cap-swipe;
+    in property <bool> cap-sleep;
+    in property <bool> cap-head;
+
+    // -1 unknown, 0 off, 1 transparency, 2 adaptive, 3 noise cancellation
+    in property <int> mode: -1;
+    in property <bool> allow-off;
+    in property <bool> ca;
+    in property <bool> pv;
+    in property <int> strength: 50;
+    in property <bool> one-bud-anc;
+    in property <bool> swipe;
+    in property <int> swipe-interval;
+    in property <int> press-speed;
+    in property <int> hold-duration;
+    in property <int> tone-volume: 70;
+    // 0 automatic, 1 always left, 2 always right
+    in property <int> mic;
+    // Modes press-and-hold cycles through: off 1, anc 2, transparency 4, adaptive 8.
+    in property <int> cycle: 14;
+    in property <bool> call-once-mutes: true;
+    in property <bool> sleep;
+    in property <bool> optimized-charging;
+
+    callback set-mode(int);
+    // Any `droidpods set` key, e.g. set("conversational-awareness", "on").
+    callback set(string, string);
+    callback disconnect();
+}
+
+// App-side settings.
+export global Prefs {
+    in property <bool> ear-detection;
+    in property <bool> connect-auto: true;
+    // 0 off, 1 percent, 2 ring
+    in property <int> tray-battery: 1;
+    in property <bool> notify-connected;
+    in property <bool> notify-takeover;
+    in property <bool> autostart;
+    in property <int> conversation-volume: 40;
+    in property <[string]> outputs;
+    in property <int> fallback;
+    in property <string> version;
+    in property <[Known]> known;
+    in property <string> last-device;
+    in property <string> device-name;
+
+    callback set(string, string);
+    callback set-fallback(int);
+    callback connect(string);
+    callback open-link(string);
+}
+
+global Util {
+    public pure function on-off(v: bool) -> string { return v ? "on" : "off"; }
+}
+
+component Page inherits VerticalLayout {
+    alignment: start;
+    spacing: 0px;
+}
+
+component ModeButton inherits Rectangle {
+    in property <int> id;
+    in property <string> label;
+    in property <bool> narrow;
+    horizontal-stretch: 1;
+    min-width: 0px;
+    preferred-width: 0px;
+    height: 60px;
+    border-radius: 12px;
+    background: Dev.mode == id ? Theme.accent : transparent;
+    animate background { duration: 150ms; }
+    VerticalLayout {
+        alignment: center;
+        spacing: 5px;
+        HorizontalLayout {
+            alignment: center;
+            ModeGlyph {
+                mode: root.id;
+                fg: Dev.mode == root.id ? white : (mta.has-hover ? Theme.text : Theme.dim);
+                bg: Dev.mode == root.id ? Theme.accent : Theme.win;
+            }
+        }
+        // Fixed-size box so the label can't feed back into the layout.
+        Rectangle {
+            height: 28px;
+            Text {
+                // The long German label breaks onto two lines in a narrow window.
+                text: root.id == 3 && root.narrow ? "Geräusch-\nunterdrückung" : root.label;
+                width: parent.width;
+                height: parent.height;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                wrap: word-wrap;
+                font-size: 11px;
+                font-weight: 500;
+                color: Dev.mode == root.id ? white : (mta.has-hover ? Theme.text : Theme.dim);
+            }
+        }
+    }
+    mta := TouchArea { mouse-cursor: pointer; clicked => { Dev.set-mode(root.id); } }
+}
+
+// Only the modes the model has; the rest share the space (an invisible item would leave a gap).
+component ModeSegment inherits Rectangle {
+    in property <bool> narrow;
+    border-radius: 16px;
+    background: Theme.card;
+    HorizontalLayout {
+        padding: 4px;
+        spacing: 4px;
+        if Dev.allow-off || Dev.mode == 0: ModeButton { id: 0; label: "Aus"; narrow: root.narrow; }
+        ModeButton { id: 1; label: "Transparenz"; narrow: root.narrow; }
+        if Dev.cap-adaptive: ModeButton { id: 2; label: "Adaptiv"; narrow: root.narrow; }
+        ModeButton { id: 3; label: "Geräuschunterdrückung"; narrow: root.narrow; }
+    }
+}
+
+// ------------------------------------------------------------------ Übersicht
+
+export component OverviewPage inherits Page {
+    in property <bool> narrow;
+    PageHeader { title: Dev.name; }
+    Rectangle { height: 18px; }
+    Rectangle {
+        border-radius: 20px;
+        background: Theme.group;
+        border-width: 1px;
+        border-color: Theme.line;
+        VerticalLayout {
+            padding-left: 18px;
+            padding-right: 18px;
+            padding-top: 16px;
+            padding-bottom: 20px;
+            spacing: 10px;
+            HorizontalLayout {
+                spacing: 6px;
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle { width: 6px; height: 6px; border-radius: 3px; background: Theme.ok; }
+                }
+                Text { text: "Verbunden mit diesem PC"; color: Theme.dim; font-size: 12px; vertical-alignment: center; horizontal-stretch: 1; }
+                Chip { text: "Trennen"; icon: Icons.power; clicked => { Dev.disconnect(); } }
+            }
+            HorizontalLayout {
+                spacing: 12px;
+                for b in Dev.bats: VerticalLayout {
+                    horizontal-stretch: 1;
+                    spacing: 6px;
+                    alignment: start;
+                    HorizontalLayout { alignment: center; BatArt { kind: b.kind; } }
+                    HorizontalLayout {
+                        alignment: center;
+                        spacing: 2px;
+                        Text {
+                            text: b.level;
+                            font-size: 26px;
+                            font-weight: 600;
+                            font-family: Theme.mono;
+                            color: b.level <= 20 ? Theme.low : b.level <= 35 ? Theme.warn : Theme.text;
+                        }
+                        Text { text: "%"; color: Theme.dim; font-size: 13px; vertical-alignment: bottom; }
+                        if b.charging: Path {
+                            width: 13px; height: 13px; y: 14px;
+                            viewbox-width: 24; viewbox-height: 24;
+                            commands: "M13 3 L6 13 h5 l-1 8 l7-10 h-5 Z";
+                            fill: Theme.ok;
+                        }
+                    }
+                    HorizontalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 120px;
+                            height: 4px;
+                            border-radius: 2px;
+                            background: Theme.line2;
+                            Rectangle {
+                                x: 0;
+                                width: parent.width * b.level / 100;
+                                border-radius: 2px;
+                                background: b.level <= 20 ? Theme.low : b.level <= 35 ? Theme.warn : Theme.text;
+                            }
+                        }
+                    }
+                    Text { text: b.label; color: Theme.dim; font-size: 11.5px; horizontal-alignment: center; }
+                }
+            }
+        }
+    }
+
+    if Dev.cap-listening: Section { text: "HÖRMODUS"; }
+    if Dev.cap-listening: ModeSegment { narrow: root.narrow; }
+
+    if Dev.cap-ca || Dev.cap-pv: Section { text: "SCHNELLZUGRIFF"; }
+    if Dev.cap-ca || Dev.cap-pv: Group {
+        if Dev.cap-ca: ToggleRow {
+            icon: Icons.bubble;
+            title: "Gesprächserkennung";
+            subtitle: "Leiser, wenn du sprichst, und weniger Hintergrundgeräusche";
+            checked: Dev.ca;
+            toggled(v) => { Dev.set("conversational-awareness", Util.on-off(v)); }
+        }
+        if Dev.cap-pv: ToggleRow {
+            icon: Icons.vol;
+            title: "Personalisierte Lautstärke";
+            subtitle: "Passt Medien an deine Umgebung an";
+            checked: Dev.pv;
+            toggled(v) => { Dev.set("personalized-volume", Util.on-off(v)); }
+        }
+    }
+}
+
+// ------------------------------------------------------------------ Klang
+
+export component SoundPage inherits Page {
+    in property <bool> narrow;
+    PageHeader { title: "Klang"; lead: "Hörmodi, adaptives Audio und Lautstärke."; }
+
+    if Dev.cap-listening: Section { text: "HÖRMODUS"; }
+    if Dev.cap-listening: ModeSegment { narrow: root.narrow; }
+    if Dev.cap-listening: Rectangle { height: 10px; }
+    if Dev.cap-listening: Group {
+        ToggleRow {
+            title: "„Aus“-Modus anzeigen";
+            subtitle: "Fügt „Aus“ zu den Hörmodi hinzu";
+            checked: Dev.allow-off;
+            toggled(v) => { Dev.set("off-mode", Util.on-off(v)); }
+        }
+    }
+
+    if Dev.cap-adaptive: Section { text: "ADAPTIVES AUDIO"; }
+    if Dev.cap-adaptive: Group {
+        SliderRow {
+            title: "Stärke";
+            subtitle: "Wie viel Umgebungsgeräusch „Adaptiv“ durchlässt";
+            low: "Weniger Geräusche";
+            high: "Mehr Geräusche";
+            value: Dev.strength;
+            committed(v) => { Dev.set("adaptive-strength", v); }
+        }
+    }
+
+    if Dev.cap-ca || Dev.cap-pv: Section { text: "LAUTSTÄRKE"; }
+    if Dev.cap-ca || Dev.cap-pv: Group {
+        if Dev.cap-pv: ToggleRow {
+            icon: Icons.vol;
+            title: "Personalisierte Lautstärke";
+            subtitle: "Passt Medien an deine Umgebung an";
+            checked: Dev.pv;
+            toggled(v) => { Dev.set("personalized-volume", Util.on-off(v)); }
+        }
+        if Dev.cap-ca: ToggleRow {
+            icon: Icons.bubble;
+            title: "Gesprächserkennung";
+            subtitle: "Leiser, wenn du sprichst, und weniger Hintergrundgeräusche";
+            checked: Dev.ca;
+            toggled(v) => { Dev.set("conversational-awareness", Util.on-off(v)); }
+        }
+    }
+}
+
+// ------------------------------------------------------------------ Steuerung
+
+component CycleRow inherits CheckRow {
+    in property <int> bit;
+    in property <string> name;
+    checked: Math.mod(floor(Dev.cycle / bit), 2) == 1;
+    clicked => {
+        // Keep at least two modes, like iOS.
+        if self.checked && (Dev.cycle == 3 || Dev.cycle == 5 || Dev.cycle == 6 || Dev.cycle == 9 || Dev.cycle == 10 || Dev.cycle == 12) {
+            return;
+        }
+        Dev.set("hold-cycle-bits", self.checked ? Dev.cycle - bit : Dev.cycle + bit);
+    }
+}
+
+export component ControlsPage inherits Page {
+    PageHeader { title: "Steuerung"; lead: Dev.headphones ? "Digital Crown, Geräuschregelung und Anrufe." : "Drücken & Halten, Gesten und Anrufe."; }
+
+    if Dev.cap-listening: Section { text: Dev.headphones ? "TASTE FÜR GERÄUSCHREGELUNG WECHSELT ZWISCHEN" : "DRÜCKEN & HALTEN WECHSELT ZWISCHEN"; }
+    if Dev.cap-listening: Group {
+        if Dev.allow-off: CycleRow { bit: 1; title: "Aus"; subtitle: "Schaltet die Geräuschregelung aus"; }
+        CycleRow { bit: 4; title: "Transparenz"; subtitle: "Lässt Umgebungsgeräusche herein"; }
+        if Dev.cap-adaptive: CycleRow { bit: 8; title: "Adaptiv"; subtitle: "Passt sich der Umgebung an"; }
+        CycleRow { bit: 2; title: "Geräuschunterdrückung"; subtitle: "Blockt Umgebungsgeräusche"; }
+    }
+
+    if Dev.cap-swipe || Dev.cap-head: Section { text: "GESTEN"; }
+    if Dev.cap-swipe || Dev.cap-head: Group {
+        if Dev.cap-swipe: ToggleRow {
+            icon: Icons.swipe;
+            title: "Wischen für Lautstärke";
+            subtitle: "Am Stiel nach oben oder unten wischen";
+            checked: Dev.swipe;
+            toggled(v) => { Dev.set("swipe-volume", Util.on-off(v)); }
+        }
+        if Dev.cap-head: WipRow { icon: Icons.head; title: "Kopfgesten"; subtitle: "Nicken zum Annehmen, Kopfschütteln zum Ablehnen"; }
+    }
+
+    if !Dev.headphones: Section { text: "ANRUFE"; }
+    if !Dev.headphones: Group {
+        OptionsRow {
+            icon: Icons.call;
+            title: "Einmal drücken";
+            subtitle: "Anruf annehmen und während des Anrufs:";
+            options: ["Stummschalten", "Auflegen"];
+            selected: Dev.call-once-mutes ? 0 : 1;
+            picked(i) => { Dev.set("call-press-once", i == 0 ? "mute" : "hangup"); }
+        }
+        OptionsRow {
+            title: "Zweimal drücken";
+            subtitle: "Während des Anrufs:";
+            options: ["Stummschalten", "Auflegen"];
+            selected: Dev.call-once-mutes ? 1 : 0;
+            picked(i) => { Dev.set("call-press-once", i == 0 ? "hangup" : "mute"); }
+        }
+    }
+}
+
+// ------------------------------------------------------------------ Bedienungshilfen
+
+export component AccessibilityPage inherits Page {
+    PageHeader { title: "Bedienungshilfen"; lead: "Druckgeschwindigkeit, Töne und Geräuschregelung."; }
+
+    Section { text: "DRÜCKEN"; }
+    Group {
+        OptionsRow {
+            title: "Druckgeschwindigkeit";
+            subtitle: "Wie schnell du zwei- oder dreimal drücken musst";
+            options: ["Standard", "Langsamer", "Am langsamsten"];
+            selected: Dev.press-speed;
+            picked(i) => { Dev.set("press-speed", ["default", "slower", "slowest"][i]); }
+        }
+        OptionsRow {
+            title: "Dauer von Drücken & Halten";
+            subtitle: "Wie lange du drücken musst";
+            options: ["Standard", "Länger", "Am längsten"];
+            selected: Dev.hold-duration;
+            picked(i) => { Dev.set("hold-duration", ["default", "longer", "longest"][i]); }
+        }
+    }
+
+    if Dev.cap-listening && !Dev.headphones: Section { text: "HÖRMODUS"; }
+    if Dev.cap-listening && !Dev.headphones: Group {
+        ToggleRow {
+            anc-icon: true;
+            title: "Geräuschunterdrückung mit einem AirPod";
+            subtitle: "Erlaubt ANC, auch wenn nur ein AirPod im Ohr ist";
+            checked: Dev.one-bud-anc;
+            toggled(v) => { Dev.set("one-bud-anc", Util.on-off(v)); }
+        }
+    }
+
+    Section { text: "TÖNE"; }
+    Group {
+        SliderRow {
+            title: "Lautstärke der Töne";
+            subtitle: "Lautstärke der Signaltöne der AirPods";
+            low: "Leiser";
+            high: "Lauter";
+            value: Dev.tone-volume;
+            committed(v) => { Dev.set("tone-volume", v); }
+        }
+    }
+
+    if Dev.cap-swipe: Section { text: "LAUTSTÄRKEREGELUNG"; }
+    if Dev.cap-swipe: Group {
+        ToggleRow {
+            icon: Icons.swipe;
+            title: "Lautstärke per Wischen";
+            subtitle: "Am Sensor des Stiels nach oben oder unten wischen";
+            checked: Dev.swipe;
+            toggled(v) => { Dev.set("swipe-volume", Util.on-off(v)); }
+        }
+        OptionsRow {
+            title: "Pause zwischen Wischgesten";
+            subtitle: "Verhindert versehentliche Änderungen";
+            options: ["Standard", "Länger", "Am längsten"];
+            selected: Dev.swipe-interval;
+            picked(i) => { Dev.set("swipe-interval", ["default", "longer", "longest"][i]); }
+        }
+    }
+}
+
+// ------------------------------------------------------------------ AirPods
+
+export component DevicePage inherits Page {
+    PageHeader { title: "AirPods"; lead: "Name, Mikrofon, Automatik und Geräteinfos."; }
+    Rectangle { height: 18px; }
+    Group {
+        FieldRow { title: "Name"; text: Dev.name; accepted(t) => { Dev.set("name", t); } }
+        if !Dev.headphones: OptionsRow {
+            icon: Icons.mic;
+            title: "Mikrofon";
+            options: ["Automatisch", "Immer links", "Immer rechts"];
+            selected: Dev.mic;
+            picked(i) => { Dev.set("microphone", ["auto", "left", "right"][i]); }
+        }
+    }
+
+    Section { text: "AUTOMATIK"; }
+    Group {
+        ToggleRow {
+            icon: Icons.ear;
+            title: "Automatische Ohrerkennung";
+            subtitle: Dev.headphones ? "Pausiert, wenn du sie absetzt" : "Pausiert, wenn du sie herausnimmst";
+            checked: Prefs.ear-detection;
+            toggled(v) => { Prefs.set("ear-detection", Util.on-off(v)); }
+        }
+        if Dev.cap-sleep: ToggleRow {
+            icon: Icons.moon;
+            title: "Pausieren beim Einschlafen";
+            subtitle: "Pausiert Medien, wenn du einschläfst";
+            checked: Dev.sleep;
+            toggled(v) => { Dev.set("sleep-detection", Util.on-off(v)); }
+        }
+        ToggleRow {
+            icon: Icons.plug;
+            title: "Optimiertes Ladelimit";
+            subtitle: "Lernt deine Nutzung und lädt passend nur bis zu einem Limit";
+            checked: Dev.optimized-charging;
+            toggled(v) => { Dev.set("optimized-charging", Util.on-off(v)); }
+        }
+    }
+
+    Section { text: "INFO"; }
+    Group {
+        ValueRow { title: "Modell"; value: Dev.model-name; }
+        ValueRow { title: "Modellnummer"; value: Dev.model-number; mono: true; }
+        ValueRow { title: "Seriennummer"; value: Dev.serial; mono: true; }
+        ValueRow { title: "Firmware"; value: Dev.firmware; mono: true; }
+    }
+    Rectangle { height: 18px; }
+    HorizontalLayout {
+        alignment: start;
+        Chip { text: "Trennen"; tone: 2; clicked => { Dev.disconnect(); } }
+    }
+}
+
+// ------------------------------------------------------------------ App
+
+export component AppPage inherits Page {
+    PageHeader { title: "App"; lead: "Verbindung, Benachrichtigungen und Hilfe."; }
+
+    Section { text: "MIT DIESEM PC VERBINDEN"; }
+    Group {
+        CheckRow {
+            radio: true;
+            title: "Automatisch";
+            subtitle: "Zu diesem PC wechseln, wenn er etwas abspielt";
+            checked: Prefs.connect-auto;
+            clicked => { Prefs.set("connect", "auto"); }
+        }
+        CheckRow {
+            radio: true;
+            title: "Wenn zuletzt mit diesem PC verbunden";
+            subtitle: "Nur neu verbinden, wenn dieser PC zuletzt genutzt wurde";
+            checked: !Prefs.connect-auto;
+            clicked => { Prefs.set("connect", "last-used"); }
+        }
+    }
+
+    Section { text: "DIESER PC"; }
+    Group {
+        FieldRow { title: "Name"; text: Prefs.device-name; accepted(t) => { Prefs.set("device-name", t); } }
+    }
+
+    Section { text: "WIEDERGABE OHNE AIRPODS"; }
+    Group {
+        SelectRow {
+            icon: Icons.speaker;
+            title: "Ausgabe";
+            subtitle: "Hierhin wechselt der Ton, wenn du die AirPods abnimmst";
+            options: Prefs.outputs;
+            selected: Prefs.fallback;
+            picked(i) => { Prefs.set-fallback(i); }
+        }
+    }
+
+    Section { text: "TRAY & BENACHRICHTIGUNGEN"; }
+    Group {
+        OptionsRow {
+            icon: Icons.tray;
+            title: "Akku im Tray-Icon";
+            subtitle: "Zeigt den niedrigsten Akkustand am Icon";
+            options: ["Aus", "Prozent", "Ring"];
+            selected: Prefs.tray-battery;
+            picked(i) => { Prefs.set("tray-battery", ["off", "percent", "ring"][i]); }
+        }
+        ToggleRow {
+            icon: Icons.bell;
+            title: "Verbindungsbenachrichtigungen";
+            subtitle: "Wenn AirPods sich mit diesem PC verbinden";
+            checked: Prefs.notify-connected;
+            toggled(v) => { Prefs.set("notify-connected", Util.on-off(v)); }
+        }
+        ToggleRow {
+            icon: Icons.swap;
+            title: "Wenn ein anderes Gerät übernimmt";
+            subtitle: "Hinweis mit „Zurückholen“, wenn iPhone, Mac oder ein anderes Gerät die AirPods übernimmt";
+            checked: Prefs.notify-takeover;
+            toggled(v) => { Prefs.set("notify-takeover", Util.on-off(v)); }
+        }
+        ToggleRow {
+            icon: Icons.power;
+            title: "Beim Anmelden starten";
+            subtitle: "Startet minimiert im Tray";
+            checked: Prefs.autostart;
+            toggled(v) => { Prefs.set("autostart", Util.on-off(v)); }
+        }
+    }
+
+    Section { text: "GESPRÄCHSERKENNUNG"; }
+    Group {
+        SliderRow {
+            title: "Lautstärke beim Sprechen";
+            subtitle: "Auf wie viel die Medienlautstärke abgesenkt wird";
+            low: "0 %";
+            high: "100 %";
+            value: Prefs.conversation-volume;
+            committed(v) => { Prefs.set("conversation-volume", v); }
+        }
+    }
+
+    Section { text: "HILFE & INFO"; }
+    Group {
+        ValueRow {
+            icon: Icons.wrench;
+            title: "Fehlerbehebung";
+            subtitle: "Logs sammeln und Verbindungsprobleme lösen";
+            link: true;
+            clicked => { Prefs.open-link("troubleshooting"); }
+        }
+        ValueRow { icon: Icons.info; title: "Neuigkeiten"; link: true; clicked => { Prefs.open-link("releases"); } }
+        ValueRow { title: "Version"; value: Prefs.version; mono: true; }
+        ValueRow {
+            title: "Basiert auf LibrePods";
+            subtitle: "Freie Software unter der GPLv3";
+            value: "Lizenzen";
+            link: true;
+            clicked => { Prefs.open-link("license"); }
+        }
+    }
+}
+
+// ------------------------------------------------------------------ Nicht verbunden
+
+export component DisconnectedPage inherits Page {
+    PageHeader { title: "Nicht verbunden"; }
+    Rectangle { height: 18px; }
+    Rectangle {
+        border-radius: 20px;
+        background: Theme.group;
+        border-width: 1px;
+        border-color: Theme.line;
+        VerticalLayout {
+            padding: 32px;
+            padding-left: 24px;
+            padding-right: 24px;
+            spacing: 14px;
+            HorizontalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 100px; height: 76px;
+                    border-radius: 30px;
+                    background: Theme.dim;
+                    Rectangle { y: 24px; height: 2.5px; background: Theme.group; }
+                    Rectangle { y: 44px; width: 6px; height: 6px; border-radius: 3px; background: Theme.ok; }
+                }
+            }
+            Text {
+                text: "Öffne das Case in der Nähe deines PCs oder verbinde manuell. Die Einstellungen erscheinen, sobald sie verbunden sind.";
+                color: Theme.dim;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+            HorizontalLayout {
+                alignment: center;
+                spacing: 8px;
+                Chip {
+                    text: "Verbinden";
+                    tone: 1;
+                    clicked => { if Prefs.known.length > 0 { Prefs.connect(Prefs.known[0].address); } }
+                }
+                Chip { text: "Fehlerbehebung"; clicked => { Prefs.open-link("troubleshooting"); } }
+            }
+        }
+    }
+
+    if Prefs.known.length > 0: Section { text: "BEKANNTE AIRPODS"; }
+    if Prefs.known.length > 0: Group {
+        for k in Prefs.known: Rectangle {
+            min-height: 56px;
+            Rectangle { y: 0; height: 1px; background: Theme.line; }
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+                padding-top: 10px;
+                padding-bottom: 10px;
+                spacing: 14px;
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 32px; height: 32px; border-radius: 10px; background: Theme.card2;
+                        Path {
+                            width: 18px; height: 18px; viewbox-width: 24; viewbox-height: 24;
+                            commands: Icons.pods; stroke: Theme.text; stroke-width: 1.6px; fill: transparent;
+                        }
+                    }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 2px;
+                    horizontal-stretch: 1;
+                    Text { text: k.name; color: Theme.text; font-size: 13.5px; font-weight: 500; }
+                    Text { text: k.subtitle; color: Theme.dim; font-size: 12px; }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    Chip { text: "Verbinden"; clicked => { Prefs.connect(k.address); } }
+                }
+            }
+        }
+    }
+}

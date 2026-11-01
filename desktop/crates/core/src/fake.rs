@@ -107,6 +107,21 @@ fn respond(cfg: &mut FakeConfig, frame: &[u8]) -> Vec<Vec<u8>> {
             vec![0x04, 0x00, 0x04, 0x00, 0x06, 0x00, 0x00, 0x00],
             aacp::set_listening_mode(cfg.mode),
             aacp::set_flag(ControlId::ConversationalAwareness, cfg.conversational_awareness),
+            // The rest of a Pro 2's settings at their factory defaults.
+            aacp::set_flag(ControlId::AdaptiveVolume, false),
+            aacp::set_flag(ControlId::AllowOffOption, true),
+            aacp::set_flag(ControlId::OneBudAnc, true),
+            aacp::set_flag(ControlId::VolumeSwipeMode, true),
+            aacp::set_flag(ControlId::SleepDetection, true),
+            aacp::set_flag(ControlId::DynamicEndOfCharge, true),
+            aacp::control_command(ControlId::AdaptiveStrength, [38, 0, 0, 0]),
+            aacp::control_command(ControlId::MicMode, [0, 0, 0, 0]),
+            aacp::control_command(ControlId::DoubleClickInterval, [0, 0, 0, 0]),
+            aacp::control_command(ControlId::ClickHoldInterval, [0, 0, 0, 0]),
+            aacp::control_command(ControlId::VolumeSwipeInterval, [1, 0, 0, 0]),
+            aacp::control_command(ControlId::ChimeVolume, [70, 0x50, 0, 0]),
+            aacp::control_command(ControlId::ListeningModeConfigs, [0x0E, 0, 0, 0]),
+            aacp::control_command(ControlId::CallManagement, [0x00, 0x03, 0, 0]),
         ];
     }
     // Control commands: real AirPods apply and echo them back.
@@ -132,10 +147,28 @@ fn metadata(cfg: &FakeConfig) -> Vec<u8> {
 pub fn battery_packet(left: u8, right: u8, case: u8, case_charging: bool) -> Vec<u8> {
     let case_status = if case_charging { 0x01 } else { 0x02 };
     vec![
-        0x04, 0x00, 0x04, 0x00, 0x04, 0x00, 0x03,
-        0x04, 0x01, left, 0x02, 0x01,
-        0x02, 0x01, right, 0x02, 0x01,
-        0x08, 0x01, case, case_status, 0x01,
+        0x04,
+        0x00,
+        0x04,
+        0x00,
+        0x04,
+        0x00,
+        0x03,
+        0x04,
+        0x01,
+        left,
+        0x02,
+        0x01,
+        0x02,
+        0x01,
+        right,
+        0x02,
+        0x01,
+        0x08,
+        0x01,
+        case,
+        case_status,
+        0x01,
     ]
 }
 

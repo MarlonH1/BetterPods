@@ -5,9 +5,12 @@
 //! follow `docs/` and the Android `AACPManager.kt`.
 
 mod control;
+mod models;
 mod packets;
+pub mod routing;
 
 pub use control::{ControlId, ListeningMode};
+pub use models::{Capability, Model, MODELS};
 pub use packets::*;
 
 /// L2CAP PSM of the AACP control channel.

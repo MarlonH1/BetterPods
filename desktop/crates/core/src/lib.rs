@@ -1,10 +1,13 @@
 //! Device session and state for DroidPods, shared by every platform and the UI.
 
+pub mod ear;
 pub mod fake;
 mod session;
+mod settings;
 mod state;
 
-pub use session::{run_session, Command, SessionEnd};
+pub use session::{run_session, Command, Peers, SessionEnd};
+pub use settings::{default_device_name, ConnectPolicy, Settings, TrayBattery};
 pub use state::{BudBattery, DeviceState};
 
 use std::future::Future;
