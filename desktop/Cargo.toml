@@ -1,0 +1,25 @@
+[workspace]
+resolver = "2"
+members = ["crates/aacp", "crates/core", "crates/platform-linux", "app"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/kavishdevar/librepods"
+
+[workspace.dependencies]
+aacp = { path = "crates/aacp" }
+droidpods-core = { path = "crates/core" }
+droidpods-linux = { path = "crates/platform-linux" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "io-util"] }
+async-trait = "0.1"
+thiserror = "2"
+log = "0.4"
+env_logger = "0.11"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+opt-level = "s"

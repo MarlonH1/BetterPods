@@ -1,0 +1,516 @@
+// DroidPods companion window. Tokens mirror the canvas design (win.css / lp.css).
+
+export global Theme {
+    in-out property <bool> dark: true;
+    out property <color> win: dark ? #14171C : #E8ECF1;
+    out property <color> rail: dark ? #0F1216 : #DDE3EA;
+    out property <color> group: dark ? #1B1F26 : #FFFFFF;
+    out property <color> card: dark ? #ffffff0d : #0f192810;
+    out property <color> card2: dark ? #ffffff17 : #0f19281c;
+    out property <color> line: dark ? #ffffff14 : #0f192824;
+    out property <color> line2: dark ? #ffffff21 : #0f192838;
+    out property <color> text: dark ? #EEF1F6 : #12161D;
+    out property <color> dim: dark ? #949DAC : #475062;
+    out property <color> accent: dark ? #2E9BFF : #0074DA;
+    out property <color> accent-soft: dark ? #2e9bff2e : #0074da1f;
+    out property <color> ok: dark ? #3DD68C : #11864F;
+    out property <color> warn: dark ? #FFB224 : #9A5D00;
+    out property <color> low: dark ? #FF6A5F : #C9302A;
+    out property <string> mono: "Noto Sans Mono";
+}
+
+export struct Bat {
+    // 0 left bud, 1 right bud, 2 case, 3 headset (AirPods Max)
+    kind: int,
+    label: string,
+    level: int,
+    charging: bool,
+}
+
+component Icon inherits Path {
+    in property <bool> filled: false;
+    viewbox-width: 24;
+    viewbox-height: 24;
+    width: 18px;
+    height: 18px;
+    stroke: filled ? transparent : Theme.text;
+    stroke-width: 1.6px;
+    fill: filled ? Theme.text : transparent;
+}
+
+component ModeGlyph inherits Rectangle {
+    // 0 off, 1 transparency, 2 adaptive, 3 noise cancellation
+    in property <int> mode;
+    in property <color> fg;
+    in property <color> bg;
+    width: 22px;
+    height: 22px;
+    if mode == 0: Path {
+        viewbox-width: 24; viewbox-height: 24; width: 100%; height: 100%;
+        commands: "M20 12 A8 8 0 1 1 4 12 A8 8 0 1 1 20 12 Z M6.5 17.5 L17.5 6.5";
+        stroke: fg; stroke-width: 1.7px; fill: transparent;
+    }
+    if mode == 1: Path {
+        viewbox-width: 24; viewbox-height: 24; width: 100%; height: 100%;
+        commands: "M20.21 9.80 A8.5 8.5 0 0 1 20.21 14.20 M19.36 16.25 A8.5 8.5 0 0 1 16.25 19.36 M14.20 20.21 A8.5 8.5 0 0 1 9.80 20.21 M7.75 19.36 A8.5 8.5 0 0 1 4.64 16.25 M3.79 14.20 A8.5 8.5 0 0 1 3.79 9.80 M4.64 7.75 A8.5 8.5 0 0 1 7.75 4.64 M9.80 3.79 A8.5 8.5 0 0 1 14.20 3.79 M16.25 4.64 A8.5 8.5 0 0 1 19.36 7.75 M15.2 12 A3.2 3.2 0 1 1 8.8 12 A3.2 3.2 0 1 1 15.2 12 Z";
+        stroke: fg; stroke-width: 1.7px; fill: transparent;
+    }
+    if mode == 2: Path {
+        viewbox-width: 24; viewbox-height: 24; width: 100%; height: 100%;
+        commands: "M20.5 12 A8.5 8.5 0 1 1 3.5 12 A8.5 8.5 0 1 1 20.5 12 Z";
+        stroke: fg; stroke-width: 1.7px; fill: transparent;
+    }
+    if mode == 2: Path {
+        viewbox-width: 24; viewbox-height: 24; width: 100%; height: 100%;
+        commands: "M12 3.5 A8.5 8.5 0 0 1 12 20.5 Z";
+        fill: fg;
+    }
+    if mode == 3: Path {
+        viewbox-width: 24; viewbox-height: 24; width: 100%; height: 100%;
+        commands: "M20.5 12 A8.5 8.5 0 1 1 3.5 12 A8.5 8.5 0 1 1 20.5 12 Z";
+        fill: fg;
+    }
+    if mode == 3: Path {
+        viewbox-width: 24; viewbox-height: 24; width: 100%; height: 100%;
+        commands: "M15.4 12 A3.4 3.4 0 1 1 8.6 12 A3.4 3.4 0 1 1 15.4 12 Z";
+        stroke: bg; stroke-width: 1.7px; fill: transparent;
+    }
+}
+
+component BatArt inherits Rectangle {
+    in property <int> kind;
+    height: 64px;
+    if kind == 0 || kind == 1: Path {
+        width: 34px; height: 48px;
+        viewbox-width: 40; viewbox-height: 56;
+        commands: kind == 0
+            ? "M17 3C9.3 3 4 8.4 4 15.5c0 6 3.7 10.5 9.6 11.6 2.3.4 3.4 1.6 3.4 3.8V49a4.5 4.5 0 0 0 9 0V18C26 8.8 23.2 3 17 3Z"
+            : "M23 3C30.7 3 36 8.4 36 15.5c0 6-3.7 10.5-9.6 11.6-2.3.4-3.4 1.6-3.4 3.8V49a4.5 4.5 0 0 1-9 0V18C14 8.8 16.8 3 23 3Z";
+        fill: Theme.text;
+    }
+    if kind == 2: Rectangle {
+        width: 50px; height: 38px;
+        border-radius: 15px;
+        background: Theme.text;
+        Rectangle { y: 12px; height: 1.6px; background: Theme.group; }
+        Rectangle { y: 22px; width: 4px; height: 4px; border-radius: 2px; background: Theme.ok; }
+    }
+    if kind == 3: Path {
+        width: 48px; height: 48px;
+        viewbox-width: 48; viewbox-height: 48;
+        commands: "M9 28 V22 A15 15 0 0 1 39 22 V28 M6 27 h8 v14 h-8 Z M34 27 h8 v14 h-8 Z";
+        stroke: Theme.text; stroke-width: 3px; fill: transparent;
+    }
+}
+
+component Toggle inherits Rectangle {
+    in property <bool> checked;
+    in property <bool> enabled: true;
+    callback toggled(bool);
+    width: 36px;
+    height: 22px;
+    border-radius: 11px;
+    background: checked ? Theme.accent : (Theme.dark ? Theme.line2 : #9AA3B2);
+    opacity: enabled ? 1 : 0.4;
+    animate background { duration: 150ms; }
+    knob := Rectangle {
+        x: checked ? 17px : 3px;
+        y: 3px;
+        width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        background: white;
+        border-width: Theme.dark ? 0px : 1px;
+        border-color: Theme.line2;
+        drop-shadow-blur: 3px;
+        drop-shadow-color: #0000004d;
+        animate x { duration: 150ms; easing: ease-out; }
+    }
+    TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.toggled(!root.checked); }
+    }
+}
+
+component Chip inherits Rectangle {
+    in property <string> text;
+    callback clicked;
+    height: 32px;
+    border-radius: 16px;
+    background: ta.has-hover ? Theme.line2 : Theme.card2;
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 6px;
+        alignment: center;
+        Icon { width: 14px; height: 14px; y: (parent.height - self.height) / 2; commands: "M12 4 v7 M7.5 7 a7 7 0 1 0 9 0"; }
+        Text { text: root.text; color: Theme.text; font-size: 12px; font-weight: 500; vertical-alignment: center; }
+    }
+    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+component SectionLabel inherits Text {
+    color: Theme.dim;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.7px;
+}
+
+component SettingRow inherits Rectangle {
+    in property <string> title;
+    in property <string> subtitle;
+    in property <string> icon;
+    in property <bool> checked;
+    in property <bool> known: true;
+    in property <bool> first: false;
+    callback toggled(bool);
+    min-height: 56px;
+    if !first: Rectangle { y: 0; height: 1px; background: Theme.line; }
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        spacing: 14px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 32px;
+                height: 32px;
+                border-radius: 10px;
+                background: Theme.card2;
+                Icon { commands: root.icon; }
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 2px;
+            Text { text: root.title; color: Theme.text; font-size: 13.5px; font-weight: 500; }
+            Text { text: root.subtitle; color: Theme.dim; font-size: 12px; overflow: elide; }
+        }
+        VerticalLayout {
+            alignment: center;
+            Toggle {
+                checked: root.checked;
+                enabled: root.known;
+                toggled(v) => { root.toggled(v); }
+            }
+        }
+    }
+}
+
+component NavItem inherits Rectangle {
+    in property <string> label;
+    in property <string> icon;
+    in property <bool> active;
+    height: 38px;
+    border-radius: 10px;
+    background: active ? Theme.card2 : ta.has-hover ? Theme.card : transparent;
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 10px;
+        Icon { y: (parent.height - self.height) / 2; commands: root.icon; stroke: root.active ? Theme.accent : Theme.dim; }
+        Text { text: root.label; color: root.active ? Theme.text : Theme.dim; font-size: 13px; font-weight: 500; vertical-alignment: center; }
+    }
+    ta := TouchArea { mouse-cursor: pointer; }
+}
+
+component WinButton inherits Rectangle {
+    in property <string> icon;
+    callback clicked;
+    width: 36px;
+    height: 30px;
+    border-radius: 8px;
+    background: ta.has-hover ? Theme.card2 : transparent;
+    Icon { width: 16px; height: 16px; commands: root.icon; stroke: ta.has-hover ? Theme.text : Theme.dim; }
+    ta := TouchArea { clicked => { root.clicked(); } }
+}
+
+export component AppWindow inherits Window {
+    title: "DroidPods";
+    no-frame: true;
+    preferred-width: 1000px;
+    // Set from a change handler rather than bound to width, which would loop through the layout.
+    property <bool> narrow: false;
+    changed width => { self.narrow = self.width < 920px; }
+    preferred-height: 680px;
+    min-width: 760px;
+    min-height: 520px;
+    background: Theme.win;
+    default-font-size: 13px;
+
+    in property <bool> connected;
+    in property <string> device-name;
+    in property <string> status-line;
+    in property <[Bat]> bats;
+    // -1 unknown, 0 off, 1 transparency, 2 adaptive, 3 noise cancellation
+    in property <int> mode: -1;
+    in property <bool> show-off: true;
+    in property <bool> ca;
+    in property <bool> ca-known;
+    in property <bool> pv;
+    in property <bool> pv-known;
+
+    callback set-mode(int);
+    callback set-ca(bool);
+    callback set-pv(bool);
+    callback disconnect();
+    callback start-drag();
+    callback minimize();
+    callback close-window();
+
+    HorizontalLayout {
+        // ---------------------------------------------------------- rail
+        Rectangle {
+            width: 232px;
+            background: Theme.rail;
+            Rectangle { x: parent.width - 1px; width: 1px; background: Theme.line; }
+            TouchArea {
+                pointer-event(e) => { if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { root.start-drag(); } }
+            }
+            VerticalLayout {
+                padding: 10px;
+                padding-top: 14px;
+                spacing: 2px;
+                HorizontalLayout {
+                    padding-left: 8px;
+                    padding-bottom: 14px;
+                    padding-top: 4px;
+                    spacing: 8px;
+                    Rectangle {
+                        width: 22px; height: 22px; border-radius: 7px; background: Theme.accent;
+                        Icon { width: 14px; height: 14px; stroke: white; commands: "M8 4C5.5 4 4 5.8 4 8.2c0 2 1.2 3.4 3.2 3.8.6.1.8.5.8 1.2v5.3a1.5 1.5 0 0 0 3 0V7.3C11 5.2 10 4 8 4ZM16 4c2.5 0 4 1.8 4 4.2 0 2-1.2 3.4-3.2 3.8-.6.1-.8.5-.8 1.2v5.3a1.5 1.5 0 0 1-3 0V7.3C13 5.2 14 4 16 4Z"; }
+                    }
+                    Text { text: "DroidPods"; color: Theme.text; font-size: 13px; font-weight: 600; vertical-alignment: center; }
+                }
+                Rectangle {
+                    border-radius: 14px;
+                    background: Theme.card;
+                    HorizontalLayout {
+                        padding: 10px;
+                        spacing: 10px;
+                        Rectangle {
+                            width: 36px; height: 36px; border-radius: 10px; background: Theme.card2;
+                            Icon { width: 22px; height: 22px; stroke: root.connected ? Theme.text : Theme.dim; commands: "M8 4C5.5 4 4 5.8 4 8.2c0 2 1.2 3.4 3.2 3.8.6.1.8.5.8 1.2v5.3a1.5 1.5 0 0 0 3 0V7.3C11 5.2 10 4 8 4ZM16 4c2.5 0 4 1.8 4 4.2 0 2-1.2 3.4-3.2 3.8-.6.1-.8.5-.8 1.2v5.3a1.5 1.5 0 0 1-3 0V7.3C13 5.2 14 4 16 4Z"; }
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            Text { text: root.connected ? root.device-name : "Nicht verbunden"; color: Theme.text; font-size: 12.5px; font-weight: 600; overflow: elide; }
+                            Text { text: root.connected ? root.status-line : "Suche nach AirPods…"; color: Theme.dim; font-size: 11px; font-family: Theme.mono; }
+                        }
+                    }
+                }
+                Rectangle { height: 12px; }
+                NavItem { label: "Übersicht"; active: true; icon: "M4 11 L12 4 L20 11 V19 a1 1 0 0 1-1 1 h-4 v-6 H9 v6 H5 a1 1 0 0 1-1-1 Z"; }
+                NavItem { label: "Klang"; icon: "M5 10v4M9 7v10M13 4v16M17 8v8M21 11v2"; }
+                NavItem { label: "Steuerung"; icon: "M8 12V6.5a1.5 1.5 0 0 1 3 0V11M11 10V5a1.5 1.5 0 0 1 3 0v6M14 10.5V7a1.5 1.5 0 0 1 3 0v6.5c0 4-2.5 6.5-6 6.5-2.3 0-3.8-1-5-3l-2.2-3.8a1.4 1.4 0 0 1 2.3-1.6L8 13"; }
+                NavItem { label: "Bedienungshilfen"; icon: "M12 3.4a1.6 1.6 0 1 1 0 3.2a1.6 1.6 0 1 1 0-3.2Z M5 8.5l7 1.5 7-1.5M12 10v4l-3 6M12 14l3 6"; }
+                NavItem { label: "AirPods"; icon: "M8 4C5.5 4 4 5.8 4 8.2c0 2 1.2 3.4 3.2 3.8.6.1.8.5.8 1.2v5.3a1.5 1.5 0 0 0 3 0V7.3C11 5.2 10 4 8 4ZM16 4c2.5 0 4 1.8 4 4.2 0 2-1.2 3.4-3.2 3.8-.6.1-.8.5-.8 1.2v5.3a1.5 1.5 0 0 1-3 0V7.3C13 5.2 14 4 16 4Z"; }
+                Rectangle { vertical-stretch: 1; }
+                NavItem { label: "App"; icon: "M15 12a3 3 0 1 1-6 0a3 3 0 1 1 6 0Z M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M6 18l1.4-1.4M16.6 7.4 18 6"; }
+            }
+        }
+
+        // ---------------------------------------------------------- main
+        VerticalLayout {
+            horizontal-stretch: 1;
+            Rectangle {
+                height: 44px;
+                TouchArea {
+                    pointer-event(e) => { if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { root.start-drag(); } }
+                }
+                HorizontalLayout {
+                    padding-right: 8px;
+                    spacing: 2px;
+                    alignment: end;
+                    WinButton { y: 7px; icon: "M6 12h12"; clicked => { root.minimize(); } }
+                    WinButton { y: 7px; icon: "M7 7l10 10M17 7 7 17"; clicked => { root.close-window(); } }
+                }
+            }
+            Flickable {
+                vertical-stretch: 1;
+                content-height: content.preferred-height;
+                content := VerticalLayout {
+                    width: min(parent.width, 740px);
+                    padding-left: 40px;
+                    padding-right: 40px;
+                    padding-bottom: 40px;
+                    spacing: 0px;
+                    alignment: start;
+
+                    Text {
+                        text: root.connected ? root.device-name : "Nicht verbunden";
+                        color: Theme.text;
+                        font-size: 28px;
+                        font-weight: 600;
+                        letter-spacing: -0.6px;
+                    }
+
+                    if !root.connected: Rectangle {
+                        height: 220px;
+                        border-radius: 20px;
+                        background: Theme.group;
+                        border-width: 1px;
+                        border-color: Theme.line;
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 10px;
+                            padding: 24px;
+                            Text { text: "Öffne das Case in der Nähe deines PCs oder verbinde die AirPods in den Bluetooth-Einstellungen."; color: Theme.dim; wrap: word-wrap; horizontal-alignment: center; }
+                            Text { text: "Die Einstellungen erscheinen, sobald sie verbunden sind."; color: Theme.dim; horizontal-alignment: center; }
+                        }
+                    }
+
+                    if root.connected: VerticalLayout {
+                        spacing: 0px;
+                        Rectangle { height: 18px; }
+                        // hero: battery
+                        Rectangle {
+                            border-radius: 20px;
+                            background: Theme.group;
+                            border-width: 1px;
+                            border-color: Theme.line;
+                            VerticalLayout {
+                                padding-left: 18px;
+                                padding-right: 18px;
+                                padding-top: 16px;
+                                padding-bottom: 20px;
+                                spacing: 10px;
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    Rectangle { width: 6px; height: 6px; y: (parent.height - 6px) / 2; border-radius: 3px; background: Theme.ok; }
+                                    Text { text: "Verbunden mit diesem PC"; color: Theme.dim; font-size: 12px; vertical-alignment: center; horizontal-stretch: 1; }
+                                    Chip { horizontal-stretch: 0; text: "Trennen"; clicked => { root.disconnect(); } }
+                                }
+                                HorizontalLayout {
+                                    spacing: 12px;
+                                    for b in root.bats: VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 6px;
+                                        alignment: start;
+                                        HorizontalLayout { alignment: center; BatArt { kind: b.kind; } }
+                                        HorizontalLayout {
+                                            alignment: center;
+                                            spacing: 2px;
+                                            Text {
+                                                text: b.level;
+                                                font-size: 26px;
+                                                font-weight: 600;
+                                                font-family: Theme.mono;
+                                                color: b.level <= 20 ? Theme.low : b.level <= 35 ? Theme.warn : Theme.text;
+                                            }
+                                            Text { text: "%"; color: Theme.dim; font-size: 13px; vertical-alignment: bottom; }
+                                            if b.charging: Icon { width: 13px; height: 13px; y: 14px; filled: true; fill: Theme.ok; commands: "M13 3 L6 13 h5 l-1 8 l7-10 h-5 Z"; }
+                                        }
+                                        HorizontalLayout {
+                                            alignment: center;
+                                            Rectangle {
+                                                width: 120px;
+                                                height: 4px;
+                                                border-radius: 2px;
+                                                background: Theme.line2;
+                                                Rectangle {
+                                                    x: 0;
+                                                    width: parent.width * b.level / 100;
+                                                    border-radius: 2px;
+                                                    background: b.level <= 20 ? Theme.low : b.level <= 35 ? Theme.warn : Theme.text;
+                                                }
+                                            }
+                                        }
+                                        Text { text: b.label; color: Theme.dim; font-size: 11.5px; horizontal-alignment: center; }
+                                    }
+                                }
+                            }
+                        }
+
+                        SectionLabel { text: "HÖRMODUS"; height: 48px; vertical-alignment: bottom; }
+                        Rectangle { height: 8px; }
+                        Rectangle {
+                            border-radius: 16px;
+                            background: Theme.card;
+                            HorizontalLayout {
+                                padding: 4px;
+                                spacing: 4px;
+                                for m[i] in [
+                                    { label: "Aus", id: 0 },
+                                    { label: "Transparenz", id: 1 },
+                                    { label: "Adaptiv", id: 2 },
+                                    { label: "Geräuschunterdrückung", id: 3 },
+                                ]: Rectangle {
+                                    horizontal-stretch: 1;
+                                    min-width: 0px;
+                                    preferred-width: 0px;
+                                    visible: m.id != 0 || root.show-off;
+                                    height: 60px;
+                                    border-radius: 12px;
+                                    background: root.mode == m.id ? Theme.accent : transparent;
+                                    animate background { duration: 150ms; }
+                                    VerticalLayout {
+                                        alignment: center;
+                                        spacing: 5px;
+                                        HorizontalLayout {
+                                            alignment: center;
+                                            ModeGlyph {
+                                                mode: m.id;
+                                                fg: root.mode == m.id ? white : (mta.has-hover ? Theme.text : Theme.dim);
+                                                bg: root.mode == m.id ? Theme.accent : Theme.win;
+                                            }
+                                        }
+                                        // Fixed-size box so the width-dependent label can't feed back into the layout.
+                                        Rectangle {
+                                            height: 28px;
+                                            Text {
+                                                // The long German label breaks onto two lines in a narrow window.
+                                                text: m.id == 3 && root.narrow ? "Geräusch-\nunterdrückung" : m.label;
+                                                width: parent.width;
+                                                height: parent.height;
+                                                horizontal-alignment: center;
+                                                vertical-alignment: center;
+                                                wrap: word-wrap;
+                                                font-size: 11px;
+                                                font-weight: 500;
+                                                color: root.mode == m.id ? white : (mta.has-hover ? Theme.text : Theme.dim);
+                                            }
+                                        }
+                                    }
+                                    mta := TouchArea { mouse-cursor: pointer; clicked => { root.set-mode(m.id); } }
+                                }
+                            }
+                        }
+
+                        SectionLabel { text: "SCHNELLZUGRIFF"; height: 48px; vertical-alignment: bottom; }
+                        Rectangle { height: 8px; }
+                        Rectangle {
+                            border-radius: 16px;
+                            background: Theme.group;
+                            border-width: 1px;
+                            border-color: Theme.line;
+                            clip: true;
+                            VerticalLayout {
+                                SettingRow {
+                                    first: true;
+                                    title: "Gesprächserkennung";
+                                    subtitle: "Leiser, wenn du sprichst, und weniger Hintergrundgeräusche";
+                                    icon: "M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v6a2.5 2.5 0 0 1-2.5 2.5H11l-4 4v-4A2 2 0 0 1 5 13Z";
+                                    checked: root.ca;
+                                    known: root.ca-known;
+                                    toggled(v) => { root.set-ca(v); }
+                                }
+                                SettingRow {
+                                    title: "Personalisierte Lautstärke";
+                                    subtitle: "Passt Medien an deine Umgebung an";
+                                    icon: "M4 9.5h3l4-3.5v12l-4-3.5H4Z M15 9a4 4 0 0 1 0 6M17.5 6.5a7.5 7.5 0 0 1 0 11";
+                                    checked: root.pv;
+                                    known: root.pv-known;
+                                    toggled(v) => { root.set-pv(v); }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

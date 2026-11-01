@@ -1,0 +1,17 @@
+[package]
+name = "droidpods-linux"
+description = "Linux platform layer for DroidPods: BlueZ L2CAP transport and device discovery"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+aacp.workspace = true
+droidpods-core.workspace = true
+tokio.workspace = true
+log.workspace = true
+bluer = { version = "0.17", features = ["bluetoothd", "l2cap"] }
+
+[dev-dependencies]
+env_logger.workspace = true
+tokio = { workspace = true, features = ["rt", "macros"] }
