@@ -141,6 +141,8 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.time.Duration.Companion.milliseconds
 
 private const val TAG = "AirPodsService"
+private const val BLE_FRESH_MS = 2000L
+private const val BLE_BURST_TIMEOUT_MS = 1500L
 
 object ServiceManager {
     private var service: AirPodsService? = null
@@ -311,11 +313,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         ) {
             if (lidOpen) {
                 Log.d(TAG, "Lid opened")
-                showPopup(
-                    this@AirPodsService,
-                    getSharedPreferences("settings", MODE_PRIVATE).getString("name", "AirPods Pro")
-                        ?: "AirPods"
-                )
                 if (BluetoothConnectionManager.aacpSocket?.isConnected == true) return
                 val leftLevel = bleManager.getMostRecentStatus()?.leftBattery ?: 0
                 val rightLevel = bleManager.getMostRecentStatus()?.rightBattery ?: 0
@@ -746,6 +743,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     MediaController.resetStreamingState()
                     BluetoothConnectionManager.aacpSocket = null
                     BluetoothConnectionManager.attSocket = null
+                    refreshBleScan()
                     WidgetRenderer.updateAll(this@AirPodsService)
                     val next = pendingMain
                     pendingMain = null
@@ -855,9 +853,19 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 //            clearPacketLogs()
 //        }
 
-        CoroutineScope(Dispatchers.IO).launch {
-            bleManager.startScanning()
-        }
+        refreshBleScan()
+    }
+
+    /**
+     * The AirPods' state only has to be overheard over BLE while there is no AACP link: with one,
+     * battery, ear state and the audio source all arrive over it - even while another device
+     * plays. BLE-only mode has no AACP, so it keeps listening.
+     */
+    fun refreshBleScan() {
+        if (!::bleManager.isInitialized) return
+        bleManager.setBackgroundScanning(
+            config.bleOnlyMode || BluetoothConnectionManager.aacpSocket?.isConnected != true
+        )
     }
 
     @Suppress("unused")
@@ -2699,8 +2707,21 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     fun takeOver(
         takingOverFor: String,
         manualTakeOverAfterReversed: Boolean = false,
-        startHeadTrackingAgain: Boolean = false
+        startHeadTrackingAgain: Boolean = false,
+        bleRefreshed: Boolean = false
     ) {
+        // without AACP the decision rests on BLE; the background scan listens rarely, so listen
+        // closely for a moment first
+        if (takingOverFor != "reverse" && !bleRefreshed &&
+            BluetoothConnectionManager.aacpSocket?.isConnected != true &&
+            !bleManager.hasFreshStatus(BLE_FRESH_MS)
+        ) {
+            Log.d(TAG, "No AACP link and no fresh BLE state, scanning before taking over")
+            bleManager.burstScan(BLE_BURST_TIMEOUT_MS) {
+                takeOver(takingOverFor, manualTakeOverAfterReversed, startHeadTrackingAgain, bleRefreshed = true)
+            }
+            return
+        }
         if (takingOverFor == "reverse") {
             aacpManager.sendControlCommand(
                 AACPManager.Companion.ControlCommandIdentifiers.OWNS_CONNECTION.value, 1
@@ -2988,6 +3009,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
                         BluetoothConnectionManager.aacpSocket = socket
                         BluetoothConnectionManager.attSocket = attSocket
+                        refreshBleScan()
 
                         // Create AirPodsInstance from stored config if available
                         if (airpodsInstance == null && config.airpodsModelNumber.isNotEmpty()) {
@@ -3198,6 +3220,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
         BluetoothConnectionManager.aacpSocket = null
         BluetoothConnectionManager.attSocket = null
+        refreshBleScan()
 
         updateNotificationContent(false)
         sendBroadcast(Intent(AirPodsNotifications.AIRPODS_DISCONNECTED).apply {

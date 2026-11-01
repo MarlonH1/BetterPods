@@ -19,6 +19,8 @@
 package me.kavishdevar.librepods.bluetooth
 
 import android.annotation.SuppressLint
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
@@ -27,6 +29,7 @@ import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -82,7 +85,6 @@ class BLEManager(private val context: Context) {
     private val sharedPreferences: SharedPreferences = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private var currentGlobalLidState: Boolean? = null
     private var lastBroadcastTime: Long = 0
-    private val processedAddresses = mutableSetOf<String>()
 
     private val lastValidCaseBatteryMap = mutableMapOf<String, Int>()
     private val modelNames = mapOf(
@@ -115,99 +117,265 @@ class BLEManager(private val context: Context) {
         override fun run() {
             cleanupStaleDevices()
             checkLidStateTimeout()
+            checkFilterTimeout()
             cleanupHandler.postDelayed(this, CLEANUP_INTERVAL_MS)
         }
     }
+
+    // The AirPods broadcast their state on their own; scanning only decides how much the radio
+    // listens. Background: low duty cycle while there is no AACP link (battery, takeover state).
+    // Burst: listens continuously for a moment when a takeover decision needs fresh data.
+    private var backgroundEnabled = false
+    private val burstCallbacks = mutableListOf<() -> Unit>()
+    private val burstTimeout = Runnable { finishBurst() }
+
+    // Narrowing: once our AirPods are seen, the controller only wakes us for them, not for every
+    // pair of AirPods nearby. With BLUETOOTH_PRIVILEGED (root) the IRK resolves in the controller
+    // across address rotations; otherwise we filter on the current random address and fall back to
+    // the broad filter when it rotates (~15 min). Not every controller matches these filters, so a
+    // kind that stays silent while the broad filter finds them right away is dropped.
+    private var narrowedAddress: String? = null
+    private val failedFilters = mutableSetOf<String>()
+    private var silentFilter: String? = null
+    private var silentFilterLeftAt = 0L
+    private var silentAddress: String? = null
+    private var filterStartedAt = 0L
+    private var runningConfig: Pair<Int, String?>? = null
 
     fun setAirPodsStatusListener(listener: AirPodsStatusListener) {
         airPodsStatusListener = listener
     }
 
-    @SuppressLint("MissingPermission")
-    fun startScanning() {
-        try {
-            Log.d(TAG, "Starting BLE scanner")
+    /** Low-power scanning in the background, used while there is no AACP connection. */
+    fun setBackgroundScanning(enabled: Boolean) {
+        cleanupHandler.post {
+            if (backgroundEnabled == enabled) return@post
+            Log.d(TAG, "Background scanning ${if (enabled) "on" else "off"}")
+            backgroundEnabled = enabled
+            applyScan()
+        }
+    }
 
-            val btManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-            val btAdapter = btManager.adapter
-
-            if (btAdapter == null) {
-                Log.d(TAG, "No Bluetooth adapter available")
-                return
+    /**
+     * Listens at full duty cycle until our AirPods report in or [timeoutMs] passes, then calls
+     * [onDone] on the main thread. Their state is then as fresh as it gets.
+     */
+    fun burstScan(timeoutMs: Long, onDone: () -> Unit) {
+        cleanupHandler.post {
+            burstCallbacks.add(onDone)
+            if (burstCallbacks.size == 1) {
+                Log.d(TAG, "Burst scan for up to ${timeoutMs}ms")
+                cleanupHandler.postDelayed(burstTimeout, timeoutMs)
+                applyScan()
             }
+        }
+    }
 
+    /** True when our AirPods reported within [maxAgeMs]. */
+    fun hasFreshStatus(maxAgeMs: Long): Boolean {
+        val status = getMostRecentStatus() ?: return false
+        return System.currentTimeMillis() - status.lastSeen <= maxAgeMs
+    }
+
+    fun stopScanning() {
+        cleanupHandler.post {
+            backgroundEnabled = false
+            cleanupHandler.removeCallbacks(burstTimeout)
+            val callbacks = burstCallbacks.toList()
+            burstCallbacks.clear()
+            applyScan()
+            callbacks.forEach { it() }
+        }
+    }
+
+    private fun finishBurst() {
+        if (burstCallbacks.isEmpty()) return
+        cleanupHandler.removeCallbacks(burstTimeout)
+        val callbacks = burstCallbacks.toList()
+        burstCallbacks.clear()
+        applyScan()
+        callbacks.forEach { it() }
+    }
+
+    private fun canUseIrkFilter(): Boolean =
+        "irk" !in failedFilters && getIrkFromPreferences() != null && identityAddress() != null &&
+            context.checkSelfPermission("android.permission.BLUETOOTH_PRIVILEGED") == PackageManager.PERMISSION_GRANTED
+
+    private fun identityAddress(): String? =
+        sharedPreferences.getString("mac_address", null)?.takeIf { BluetoothAdapter.checkBluetoothAddress(it) }
+
+    @SuppressLint("MissingPermission")
+    private fun applyScan() {
+        val mode = when {
+            burstCallbacks.isNotEmpty() -> ScanSettings.SCAN_MODE_LOW_LATENCY
+            backgroundEnabled -> ScanSettings.SCAN_MODE_LOW_POWER
+            else -> null
+        }
+        val filterKey = when {
+            mode == null -> null
+            canUseIrkFilter() -> "irk"
+            "address" !in failedFilters -> narrowedAddress
+            else -> null
+        }
+        val config = mode?.let { it to filterKey }
+        if (config == runningConfig && (config == null || mScanCallback != null)) return
+
+        try {
             if (mBluetoothLeScanner != null && mScanCallback != null) {
                 mBluetoothLeScanner?.stopScan(mScanCallback)
-                mScanCallback = null
             }
+        } catch (t: Throwable) {
+            Log.e(TAG, "Error stopping BLE scanner", t)
+        }
+        mScanCallback = null
+        runningConfig = null
+        cleanupHandler.removeCallbacks(cleanupRunnable)
+        if (mode == null) {
+            // nothing refreshes it now; old state must not steer a later takeover
+            deviceStatusMap.clear()
+            currentGlobalLidState = null
+            Log.d(TAG, "BLE scanner stopped")
+            return
+        }
 
-            if (!btAdapter.isEnabled) {
-                Log.d(TAG, "Bluetooth is disabled")
+        try {
+            val btAdapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
+            if (btAdapter == null || !btAdapter.isEnabled) {
+                Log.d(TAG, "Bluetooth unavailable, not scanning")
                 return
             }
-
             mBluetoothLeScanner = btAdapter.bluetoothLeScanner
 
+            // no report delay: batching made the controller wake us every 500ms, around the clock
             val scanSettings = ScanSettings.Builder()
-                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-                .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
+                .setScanMode(mode)
                 .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
-                .setNumOfMatches(ScanSettings.MATCH_NUM_MAX_ADVERTISEMENT)
-                .setReportDelay(500L)
                 .build()
 
-            val manufacturerData = ByteArray(27)
-            val manufacturerDataMask = ByteArray(27)
-
-            manufacturerData[0] = 7
-            manufacturerData[1] = 25
-
-            manufacturerDataMask[0] = -1
-            manufacturerDataMask[1] = -1
-
-            val scanFilter = ScanFilter.Builder()
-                .setManufacturerData(76, manufacturerData, manufacturerDataMask)
-                .build()
-
-            mScanCallback = object : ScanCallback() {
+            val callback = object : ScanCallback() {
                 override fun onScanResult(callbackType: Int, result: ScanResult) {
                     processScanResult(result)
                 }
 
                 override fun onBatchScanResults(results: List<ScanResult>) {
-                    processedAddresses.clear()
-                    for (result in results) {
-                        processScanResult(result)
-                    }
+                    results.forEach { processScanResult(it) }
                 }
 
                 override fun onScanFailed(errorCode: Int) {
                     Log.e(TAG, "BLE scan failed with error code: $errorCode")
+                    if (runningConfig?.second == "irk") {
+                        failedFilters.add("irk")
+                        runningConfig = null
+                        mScanCallback = null
+                        applyScan()
+                    }
                 }
             }
-
-            mBluetoothLeScanner?.startScan(listOf(scanFilter), scanSettings, mScanCallback)
-            Log.d(TAG, "BLE scanner started successfully")
+            mScanCallback = callback
+            runningConfig = config
+            filterStartedAt = System.currentTimeMillis()
+            mBluetoothLeScanner?.startScan(listOf(buildScanFilter(filterKey)), scanSettings, callback)
+            Log.d(TAG, "BLE scanner started, mode $mode, filter ${filterKey ?: "broad"}")
 
             cleanupHandler.postDelayed(cleanupRunnable, CLEANUP_INTERVAL_MS)
         } catch (t: Throwable) {
             Log.e(TAG, "Error starting BLE scanner", t)
+            if (filterKey == "irk") {
+                failedFilters.add("irk")
+                mScanCallback = null
+                runningConfig = null
+                applyScan()
+            }
         }
     }
 
-    @SuppressLint("MissingPermission")
-    fun stopScanning() {
-        try {
-            if (mBluetoothLeScanner != null && mScanCallback != null) {
-                Log.d(TAG, "Stopping BLE scanner")
-                mBluetoothLeScanner?.stopScan(mScanCallback)
-                mScanCallback = null
-            }
+    private fun buildScanFilter(filterKey: String?): ScanFilter {
+        val manufacturerData = ByteArray(27)
+        val manufacturerDataMask = ByteArray(27)
 
-            cleanupHandler.removeCallbacks(cleanupRunnable)
-        } catch (t: Throwable) {
-            Log.e(TAG, "Error stopping BLE scanner", t)
+        manufacturerData[0] = 7
+        manufacturerData[1] = 25
+        manufacturerDataMask[0] = -1
+        manufacturerDataMask[1] = -1
+
+        // the model id of our AirPods, learned from their first verified broadcast: drops other
+        // models in the controller even while the filter is broad
+        learnedModelId()?.let { (hi, lo) ->
+            manufacturerData[3] = hi
+            manufacturerData[4] = lo
+            manufacturerDataMask[3] = -1
+            manufacturerDataMask[4] = -1
         }
+
+        val builder = ScanFilter.Builder().setManufacturerData(76, manufacturerData, manufacturerDataMask)
+        when (filterKey) {
+            null -> {}
+            "irk" -> {
+                // @SystemApi, needs BLUETOOTH_PRIVILEGED; throws when unavailable -> broad filter
+                ScanFilter.Builder::class.java
+                    .getMethod("setDeviceAddress", String::class.java, Int::class.javaPrimitiveType, ByteArray::class.java)
+                    .invoke(builder, identityAddress(), BluetoothDevice.ADDRESS_TYPE_PUBLIC, getIrkFromPreferences())
+            }
+            else -> builder.setDeviceAddress(filterKey)
+        }
+        return builder.build()
+    }
+
+    private fun learnedModelId(): Pair<Byte, Byte>? {
+        val irk = sharedPreferences.getString(AACPManager.Companion.ProximityKeyType.IRK.name, null) ?: return null
+        if (sharedPreferences.getString(PREF_MODEL_IRK, null) != irk) return null
+        val id = sharedPreferences.getInt(PREF_MODEL_ID, -1).takeIf { it >= 0 } ?: return null
+        return (id shr 8).toByte() to id.toByte()
+    }
+
+    private fun rememberModelId(data: ByteArray) {
+        val irk = sharedPreferences.getString(AACPManager.Companion.ProximityKeyType.IRK.name, null) ?: return
+        val id = ((data[3].toInt() and 0xFF) shl 8) or (data[4].toInt() and 0xFF)
+        if (learnedModelId() != null && sharedPreferences.getInt(PREF_MODEL_ID, -1) == id) return
+        sharedPreferences.edit().putString(PREF_MODEL_IRK, irk).putInt(PREF_MODEL_ID, id).apply()
+        Log.d(TAG, "Learned model id ${"%04x".format(id)} of our AirPods")
+        runningConfig = null // restart with the model in the filter
+    }
+
+    /** Called for every broadcast verified as ours. */
+    private fun onOwnBroadcast(address: String) {
+        val filter = runningConfig?.second
+        val silent = silentFilter
+        if (filter == null && silent != null &&
+            System.currentTimeMillis() - silentFilterLeftAt < FILTER_RETRY_WINDOW_MS &&
+            (silent == "irk" || address == silentAddress)
+        ) {
+            // the narrowed filter stayed silent, yet the broad one finds them at once (under the
+            // same address, so it was no rotation): this controller does not match that filter
+            Log.d(TAG, "Controller does not match the $silent filter, dropping it")
+            failedFilters.add(silent)
+        }
+        silentFilter = null
+        if (filter != "irk") narrowedAddress = address
+        if (burstCallbacks.isNotEmpty()) finishBurst() else applyScan()
+    }
+
+    /** A narrowed filter that stays silent lost the AirPods (address rotation, out of range). */
+    private fun checkFilterTimeout() {
+        val filterKey = runningConfig?.second ?: return
+        val lastSeen = maxOf(lastBroadcastTime, filterStartedAt)
+        if (System.currentTimeMillis() - lastSeen < FILTER_SILENCE_TIMEOUT_MS) return
+        Log.d(TAG, "Filter $filterKey silent, falling back to the broad filter")
+        silentFilter = if (filterKey == "irk") "irk" else "address"
+        silentAddress = narrowedAddress
+        silentFilterLeftAt = System.currentTimeMillis()
+        // the IRK filter would be chosen again right away; hold it off until the broad filter
+        // has had its chance to tell whether the AirPods are really gone
+        if (filterKey == "irk") failedFilters.add("irk")
+        narrowedAddress = null
+        applyScan()
+        if (filterKey == "irk") cleanupHandler.postDelayed({
+            if (silentFilter == "irk") {
+                // the broad filter did not find them either: they were gone, not the filter broken
+                failedFilters.remove("irk")
+                silentFilter = null
+            }
+        }, FILTER_RETRY_WINDOW_MS)
     }
 
     @OptIn(ExperimentalEncodingApi::class)
@@ -254,10 +422,6 @@ class BLEManager(private val context: Context) {
             val scanRecord = result.scanRecord ?: return
             val address = result.device.address
 
-            if (processedAddresses.contains(address)) {
-                return
-            }
-
             val manufacturerData = scanRecord.getManufacturerSpecificData(76) ?: return
             if (manufacturerData.size <= 20) return
 
@@ -270,7 +434,6 @@ class BLEManager(private val context: Context) {
                 Log.d(TAG, "RPA verified and added to trusted list: $address")
             }
 
-            processedAddresses.add(address)
             lastBroadcastTime = System.currentTimeMillis()
 
             val encryptionKey = getEncryptionKeyFromPreferences()
@@ -295,7 +458,7 @@ class BLEManager(private val context: Context) {
                         Log.d(TAG, "Lid state ${if (parsedStatus.lidOpen) "opened" else "closed"} (detected from new device)")
                     }
                 } else {
-                    if (parsedStatus != previousStatus) {
+                    if (parsedStatus.copy(lastSeen = previousStatus.lastSeen) != previousStatus) {
                         listener.onDeviceStatusChanged(parsedStatus, previousStatus)
                     }
 
@@ -327,6 +490,10 @@ class BLEManager(private val context: Context) {
                     }
                 }
             }
+
+            // after the status is stored, so burst callbacks see it
+            rememberModelId(manufacturerData)
+            onOwnBroadcast(address)
         } catch (t: Throwable) {
             Log.e(TAG, "Error processing scan result", t)
         }
@@ -492,7 +659,11 @@ class BLEManager(private val context: Context) {
     companion object {
         private const val TAG = "AirPodsBLE"
         private const val CLEANUP_INTERVAL_MS = 10000L
-        private const val STALE_DEVICE_TIMEOUT_MS = 15000L
+        private const val STALE_DEVICE_TIMEOUT_MS = 30000L
+        private const val FILTER_SILENCE_TIMEOUT_MS = 30000L
+        private const val FILTER_RETRY_WINDOW_MS = 15000L
+        private const val PREF_MODEL_ID = "ble_model_id"
+        private const val PREF_MODEL_IRK = "ble_model_irk"
         private const val LID_CLOSE_TIMEOUT_MS = 2500L
     }
 }
